@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CountryCompare
+
+Compare economies of 200+ countries with interactive charts.
+
+## Features
+
+- Select any 2 countries from 200+ options
+- 5 economic indicators: GDP, Population, Unemployment, CPI Inflation, Life Expectancy
+- Interactive line charts (2000-2024)
+- Latest data comparison table
+- Responsive design (mobile-friendly)
+
+## Tech Stack
+
+- **Framework**: Next.js (App Router, TypeScript)
+- **Charts**: Chart.js + react-chartjs-2
+- **Styling**: Tailwind CSS
+- **Data**: World Bank Open Data API (free, no API key required)
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API Routes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `GET /api/countries` - List of 200+ countries
+- `GET /api/compare?countries=KR,JP&indicator=NY.GDP.MKTP.CD` - Compare indicator data
 
-## Learn More
+## Available Indicators
 
-To learn more about Next.js, take a look at the following resources:
+| ID | Name |
+|----|------|
+| NY.GDP.MKTP.CD | GDP (USD) |
+| SP.POP.TOTL | Population |
+| SL.UEM.TOTL.ZS | Unemployment Rate (%) |
+| FP.CPI.TOTL.ZG | CPI Inflation (%) |
+| SP.DYN.LE00.IN | Life Expectancy (years) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Data Source
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+[World Bank Open Data](https://data.worldbank.org/) - Free and open access to global development data.
 
-## Deploy on Vercel
+## Deploy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+MIT

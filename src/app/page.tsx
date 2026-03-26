@@ -126,9 +126,9 @@ export default function Home() {
         Promise.all(proFetches),
       ]);
 
-      const freeResults = freeData.filter((d): d is CompareResult => d && !d.error);
+      const freeResults = freeData.filter((d): d is CompareResult => d !== null && d !== undefined && !('error' in d));
       const proResults = proData
-        .filter((d): d is CompareResult => d && !d.error)
+        .filter((d): d is CompareResult => d !== null && d !== undefined && !('error' in d))
         .map((d) => ({ ...d, indicator: { ...d.indicator, tier: 'pro' } }));
 
       setResults([...freeResults, ...proResults]);

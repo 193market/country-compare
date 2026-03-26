@@ -112,8 +112,8 @@ export default async function ComparePage({ params }: PageProps) {
   const countryEntries = parsed.map((c) => ({ code: c.code, name: c.name }));
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-gradient-to-b from-blue-800 to-white px-4 pt-10 pb-14 text-center">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+      <header className="bg-gradient-to-b from-blue-800 to-white dark:from-blue-900 dark:to-gray-900 px-4 pt-10 pb-14 text-center">
         <Link href="/" className="text-blue-200 hover:text-white text-sm transition">
           &larr; Back to CountryCompare
         </Link>
@@ -132,14 +132,14 @@ export default async function ComparePage({ params }: PageProps) {
           countries={countryEntries}
         />
         {/* Related Comparisons */}
-        <div className="mt-12 bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Related Comparisons</h2>
+        <div className="mt-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Related Comparisons</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {relatedComparisons.map((item) => (
               <Link
                 key={item.slug}
                 href={`/compare/${item.slug}`}
-                className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition text-gray-700 hover:text-blue-700 text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400 text-sm font-medium"
               >
                 <span className="text-base leading-none">{countryCodeToFlag(item.codeA)}</span>
                 <span className="text-base leading-none">{countryCodeToFlag(item.codeB)}</span>

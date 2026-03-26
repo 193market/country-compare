@@ -110,7 +110,7 @@ export default function CompareResultsClient({ freeResults, proResults, countrie
 
   if (freeResults.length === 0 && proResults.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-500">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center text-gray-500">
         No data available for this comparison.
       </div>
     );
@@ -119,9 +119,9 @@ export default function CompareResultsClient({ freeResults, proResults, countrie
   return (
     <>
       {/* Download Report Bar */}
-      <div className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-4 mb-6">
+      <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 px-6 py-4 mb-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {countries.map((c) => c.name).join(' vs ')}
           </h2>
           <p className="text-xs text-gray-500 mt-0.5">
@@ -156,12 +156,12 @@ export default function CompareResultsClient({ freeResults, proResults, countrie
 
       {/* Comparison Table */}
       {freeResults.length > 0 && (
-        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Latest Data Comparison</h2>
+        <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Latest Data Comparison</h2>
             <button
               onClick={() => handleExportCsv(freeResults)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
@@ -172,7 +172,7 @@ export default function CompareResultsClient({ freeResults, proResults, countrie
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 text-gray-600">
+                <tr className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                   <th className="text-left px-6 py-3 font-medium sticky left-0 bg-gray-50 z-10 min-w-[180px]">Indicator</th>
                   {countries.map((c, i) => (
                     <th key={c.code} className="text-right px-6 py-3 font-medium whitespace-nowrap min-w-[120px]">
@@ -187,8 +187,8 @@ export default function CompareResultsClient({ freeResults, proResults, countrie
               </thead>
               <tbody>
                 {freeResults.map((result, i) => (
-                  <tr key={result.indicator.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className={`px-6 py-3 text-gray-900 font-medium sticky left-0 z-10 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                  <tr key={result.indicator.id} className={i % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}>
+                    <td className={`px-6 py-3 text-gray-900 font-medium sticky left-0 z-10 ${i % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}`}>
                       {result.indicator.name}
                     </td>
                     {codes.map((code) => (
@@ -208,7 +208,7 @@ export default function CompareResultsClient({ freeResults, proResults, countrie
       {proResults.length > 0 && (
         <div className="mt-10">
           <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Pro Indicators</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pro Indicators</h2>
             {!isPro && (
               <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
                 45 indicators
@@ -234,9 +234,9 @@ export default function CompareResultsClient({ freeResults, proResults, countrie
 
       {/* Pro CTA */}
       {!isPro && (
-        <div className="mt-10 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-6 sm:p-8 text-center">
+        <div className="mt-10 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl border border-amber-200 dark:border-amber-800 p-6 sm:p-8 text-center">
           <p className="text-2xl mb-2">&#128274;</p>
-          <h3 className="text-xl font-bold text-gray-900">Unlock All 50 Indicators &amp; 10-Country Comparison</h3>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Unlock All 50 Indicators &amp; 10-Country Comparison</h3>
           <p className="mt-2 text-sm text-gray-600 max-w-lg mx-auto">
             Compare up to 10 countries at once with 50 economic indicators
             and full 25-year historical data (2000&ndash;2024).

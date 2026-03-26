@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -16,16 +16,8 @@ import { Line } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 export const COUNTRY_COLORS = [
-  '#2563EB', // blue
-  '#DC2626', // red
-  '#16A34A', // green
-  '#EA580C', // orange
-  '#9333EA', // purple
-  '#0891B2', // cyan
-  '#EC4899', // pink
-  '#92400E', // brown
-  '#6B7280', // gray
-  '#111827', // black
+  '#2563EB', '#DC2626', '#16A34A', '#EA580C', '#9333EA',
+  '#0891B2', '#EC4899', '#92400E', '#6B7280', '#111827',
 ];
 
 export interface CountryChartEntry {
@@ -63,20 +55,42 @@ export function formatTableValue(val: number | null, format: string): string {
   return formatValue(val, format);
 }
 
+function useDarkMode() {
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+  return isDark;
+}
+
 export default function CompareChart({ indicatorName, format, countries, locked, onUnlock, isPro, onDownload }: CompareChartProps) {
   const chartRef = useRef<ChartJS<'line'>>(null);
+  const isDark = useDarkMode();
+
+  const textColor = isDark ? '#E5E7EB' : '#1F2937';
+  const gridColor = isDark ? '#374151' : '#E5E7EB';
+  const tickColor = isDark ? '#9CA3AF' : '#6B7280';
+  const legendColor = isDark ? '#D1D5DB' : '#374151';
 
   const allYears = Array.from(
     new Set(countries.flatMap((c) => c.data.map((d) => d.year)))
   ).sort();
 
-  const datasets = countries.map((country) => {
+  const datasets = countries.map((country, i) => {
     const valueMap = new Map(country.data.map((d) => [d.year, d.value]));
+    // In dark mode, swap very dark colors for brighter ones
+    let color = country.color;
+    if (isDark && color === '#111827') color = '#F59E0B';
+    if (isDark && color === '#6B7280') color = '#9CA3AF';
     return {
       label: country.countryName,
       data: allYears.map((y) => valueMap.get(y) ?? null),
-      borderColor: country.color,
-      backgroundColor: country.color + '20',
+      borderColor: color,
+      backgroundColor: color + '20',
       tension: 0.3,
       pointRadius: countries.length > 5 ? 1 : 2,
       pointHoverRadius: 5,
@@ -94,7 +108,7 @@ export default function CompareChart({ indicatorName, format, countries, locked,
         display: true,
         text: indicatorName,
         font: { size: 14, weight: 'bold' as const },
-        color: '#1F2937',
+        color: textColor,
       },
       legend: {
         position: 'bottom' as const,
@@ -102,6 +116,7 @@ export default function CompareChart({ indicatorName, format, countries, locked,
           boxWidth: 12,
           padding: 8,
           font: { size: countries.length > 5 ? 10 : 12 },
+          color: legendColor,
         },
       },
       tooltip: {
@@ -114,8 +129,13 @@ export default function CompareChart({ indicatorName, format, countries, locked,
       },
     },
     scales: {
+      x: {
+        ticks: { color: tickColor },
+        grid: { color: gridColor },
+      },
       y: {
         ticks: {
+          color: tickColor,
           callback: (val: string | number) => {
             const num = typeof val === 'string' ? parseFloat(val) : val;
             switch (format) {
@@ -130,6 +150,7 @@ export default function CompareChart({ indicatorName, format, countries, locked,
             }
           },
         },
+        grid: { color: gridColor },
       },
     },
   };
@@ -149,11 +170,11 @@ export default function CompareChart({ indicatorName, format, countries, locked,
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 relative overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6 relative overflow-hidden transition-colors">
       {!locked && (
         <button
           onClick={handleDownload}
-          className="absolute top-3 right-3 z-10 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition cursor-pointer"
+          className="absolute top-3 right-3 z-10 p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
           title={isPro ? 'Download PNG' : 'Pro feature'}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -167,17 +188,15 @@ export default function CompareChart({ indicatorName, format, countries, locked,
       </div>
       {locked && (
         <div
-          className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 cursor-pointer"
+          className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 dark:bg-gray-900/60 cursor-pointer"
           onClick={onUnlock}
         >
           <div className="text-4xl mb-3">&#128274;</div>
-          <p className="text-sm font-semibold text-gray-800 text-center px-4">
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 text-center px-4">
             Unlock 50 indicators with Pro
           </p>
-          <p className="text-xs text-gray-500 mt-1">$9/month</p>
-          <button
-            className="mt-3 px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-semibold rounded-lg shadow hover:from-amber-600 hover:to-orange-600 transition cursor-pointer"
-          >
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">$9/month</p>
+          <button className="mt-3 px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-semibold rounded-lg shadow hover:from-amber-600 hover:to-orange-600 transition cursor-pointer">
             Upgrade to Pro
           </button>
         </div>

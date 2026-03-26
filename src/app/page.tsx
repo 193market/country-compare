@@ -265,9 +265,9 @@ export default function Home() {
   const maxCountries = isPro ? MAX_COUNTRIES_PRO : MAX_COUNTRIES_FREE;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
       {/* Hero */}
-      <header className="bg-gradient-to-b from-blue-800 to-white px-4 pt-12 pb-16 text-center">
+      <header className="bg-gradient-to-b from-blue-800 to-white dark:from-blue-900 dark:to-gray-900 px-4 pt-12 pb-16 text-center">
         <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight">
           Compare Economies of 200+ Countries
         </h1>
@@ -278,7 +278,7 @@ export default function Home() {
 
       <main className="mx-auto max-w-6xl px-4 -mt-8">
         {/* Country Selection */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 sm:p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6 sm:p-8">
           <div className="space-y-3">
             {selectedCountries.map((code, index) => (
               <div key={index} className="flex items-end gap-2">
@@ -355,7 +355,7 @@ export default function Home() {
 
         {/* Download Report Bar */}
         {!loading && freeResults.length > 0 && (
-          <div className="mt-8 flex items-center justify-between bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-4">
+          <div className="mt-8 flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 px-6 py-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
                 {selectedCountries.map(getCountryName).join(' vs ')}
@@ -394,12 +394,12 @@ export default function Home() {
             </div>
 
             {/* Comparison Table */}
-            <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Latest Data Comparison</h2>
+            <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Latest Data Comparison</h2>
                 <button
                   onClick={() => handleExportCsv(freeResults)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
@@ -410,7 +410,7 @@ export default function Home() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-gray-50 text-gray-600">
+                    <tr className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                       <th className="text-left px-6 py-3 font-medium sticky left-0 bg-gray-50 z-10 min-w-[180px]">Indicator</th>
                       {selectedCountries.map((code, i) => (
                         <th key={code} className="text-right px-6 py-3 font-medium whitespace-nowrap min-w-[120px]">
@@ -425,8 +425,8 @@ export default function Home() {
                   </thead>
                   <tbody>
                     {freeResults.map((result, i) => (
-                      <tr key={result.indicator.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className={`px-6 py-3 text-gray-900 font-medium sticky left-0 z-10 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                      <tr key={result.indicator.id} className={i % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}>
+                        <td className={`px-6 py-3 text-gray-900 font-medium sticky left-0 z-10 ${i % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}`}>
                           {result.indicator.name}
                         </td>
                         {selectedCountries.map((code) => (
@@ -447,7 +447,7 @@ export default function Home() {
         {!loading && proResults.length > 0 && (
           <div className="mt-10">
             <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Pro Indicators</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pro Indicators</h2>
               {!isPro && (
                 <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
                   45 indicators
@@ -471,12 +471,12 @@ export default function Home() {
 
             {/* Pro table when unlocked */}
             {isPro && (
-              <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">Pro Data Comparison</h2>
+              <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pro Data Comparison</h2>
                   <button
                     onClick={() => handleExportCsv(proResults)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
@@ -487,7 +487,7 @@ export default function Home() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-50 text-gray-600">
+                      <tr className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                         <th className="text-left px-6 py-3 font-medium sticky left-0 bg-gray-50 z-10 min-w-[180px]">Indicator</th>
                         {selectedCountries.map((code, i) => (
                           <th key={code} className="text-right px-6 py-3 font-medium whitespace-nowrap min-w-[120px]">
@@ -502,8 +502,8 @@ export default function Home() {
                     </thead>
                     <tbody>
                       {proResults.map((result, i) => (
-                        <tr key={result.indicator.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          <td className={`px-6 py-3 text-gray-900 font-medium sticky left-0 z-10 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                        <tr key={result.indicator.id} className={i % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}>
+                          <td className={`px-6 py-3 text-gray-900 font-medium sticky left-0 z-10 ${i % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}`}>
                             {result.indicator.name}
                           </td>
                           {selectedCountries.map((code) => (
@@ -523,9 +523,9 @@ export default function Home() {
 
         {/* Pro CTA Banner */}
         {!isPro && !loading && results.length > 0 && (
-          <div className="mt-10 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-6 sm:p-8 text-center">
+          <div className="mt-10 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl border border-amber-200 dark:border-amber-800 p-6 sm:p-8 text-center">
             <p className="text-2xl mb-2">&#128274;</p>
-            <h3 className="text-xl font-bold text-gray-900">Unlock All 50 Indicators &amp; 10-Country Comparison</h3>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Unlock All 50 Indicators &amp; 10-Country Comparison</h3>
             <p className="mt-2 text-sm text-gray-600 max-w-lg mx-auto">
               Compare up to 10 countries at once with 50 economic indicators
               and full 25-year historical data (2000&ndash;2024).
@@ -543,14 +543,14 @@ export default function Home() {
         )}
 
         {/* Popular Comparisons */}
-        <div className="mt-12 bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Popular Comparisons</h2>
+        <div className="mt-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Popular Comparisons</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {POPULAR_COMPARISONS.map((item) => (
               <Link
                 key={item.slug}
                 href={`/compare/${item.slug}`}
-                className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition text-gray-700 hover:text-blue-700 text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400 text-sm font-medium"
               >
                 <span className="text-blue-500">&rarr;</span>
                 {item.label}
@@ -560,14 +560,14 @@ export default function Home() {
         </div>
 
         {/* Recent Comparisons by Users */}
-        <div className="mt-12 bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Comparisons by Users</h2>
+        <div className="mt-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Recent Comparisons by Users</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {RECENT_COMPARISONS.map((item) => (
               <Link
                 key={item.slug}
                 href={`/compare/${item.slug}`}
-                className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition text-gray-700 hover:text-blue-700 text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400 text-sm font-medium"
               >
                 <span className="text-base leading-none">{countryCodeToFlag(item.codeA)}</span>
                 <span className="text-base leading-none">{countryCodeToFlag(item.codeB)}</span>
@@ -578,14 +578,14 @@ export default function Home() {
         </div>
 
         {/* Explore Countries */}
-        <div id="countries" className="mt-12 bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Explore Countries</h2>
+        <div id="countries" className="mt-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Explore Countries</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             {COUNTRIES.map((c) => (
               <Link
                 key={c.slug}
                 href={`/country/${c.slug}`}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-gray-100 hover:border-blue-300 hover:bg-blue-50 transition text-gray-700 hover:text-blue-700 text-sm font-medium"
+                className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400 text-sm font-medium"
               >
                 <span className="text-base leading-none">{countryCodeToFlag(c.code)}</span>
                 <span className="truncate">{c.name}</span>
@@ -596,19 +596,19 @@ export default function Home() {
 
         {/* How it Works */}
         <div className="mt-12">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">How it works</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 text-center mb-8">How it works</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {[
               { step: '1', title: 'Select countries', desc: 'Choose from 200+ countries — up to 10 with Pro' },
               { step: '2', title: 'Compare 50+ indicators', desc: 'GDP, population, trade, energy, and more' },
               { step: '3', title: 'Download reports', desc: 'Export charts and data for your research' },
             ].map((item) => (
-              <div key={item.step} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-                <div className="mx-auto w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-lg mb-3">
+              <div key={item.step} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 text-center">
+                <div className="mx-auto w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold text-lg mb-3">
                   {item.step}
                 </div>
-                <h3 className="font-semibold text-gray-900">{item.title}</h3>
-                <p className="mt-1 text-sm text-gray-500">{item.desc}</p>
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100">{item.title}</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{item.desc}</p>
               </div>
             ))}
           </div>

@@ -96,9 +96,9 @@ export default function CountryProfileClient({
         {keyStats.map((stat) => {
           const change = getChangePercent(stat.value, stat.prevValue);
           return (
-            <div key={stat.label} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{stat.label}</p>
-              <p className="mt-2 text-2xl font-bold text-gray-900">
+            <div key={stat.label} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{stat.label}</p>
+              <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {formatStatValue(stat.value, stat.format)}
               </p>
               {change !== null && (
@@ -123,7 +123,7 @@ export default function CountryProfileClient({
       {/* Free Indicator Charts */}
       {freeIndicators.length > 0 && (
         <div className="mt-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Key Economic Indicators</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Key Economic Indicators</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {freeIndicators.map((ind) => (
               <CompareChart
@@ -146,13 +146,13 @@ export default function CountryProfileClient({
 
       {/* Free Data Table */}
       {freeIndicators.length > 0 && (
-        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Latest Data</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Latest Data</h2>
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-gray-600">
+              <tr className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                 <th className="text-left px-6 py-3 font-medium">Indicator</th>
                 <th className="text-right px-6 py-3 font-medium">Latest Value</th>
               </tr>
@@ -161,7 +161,7 @@ export default function CountryProfileClient({
               {freeIndicators.map((ind, i) => {
                 const latest = [...ind.data].reverse().find((d) => d.value !== null);
                 return (
-                  <tr key={ind.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <tr key={ind.id} className={i % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-750'}>
                     <td className="px-6 py-3 text-gray-900 font-medium">{ind.name}</td>
                     <td className="px-6 py-3 text-right text-gray-700">
                       {formatTableValue(latest?.value ?? null, ind.format)}
@@ -178,7 +178,7 @@ export default function CountryProfileClient({
       {proIndicators.length > 0 && (
         <div className="mt-10">
           <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Pro Indicators</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pro Indicators</h2>
             {!isPro && (
               <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
                 45 indicators
@@ -209,9 +209,9 @@ export default function CountryProfileClient({
 
       {/* Pro CTA */}
       {!isPro && (
-        <div className="mt-10 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-6 sm:p-8 text-center">
+        <div className="mt-10 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl border border-amber-200 dark:border-amber-800 p-6 sm:p-8 text-center">
           <p className="text-2xl mb-2">&#128274;</p>
-          <h3 className="text-xl font-bold text-gray-900">Unlock Full {countryName} Economic Data</h3>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Unlock Full {countryName} Economic Data</h3>
           <p className="mt-2 text-sm text-gray-600 max-w-lg mx-auto">
             Access 50 indicators with 25-year historical data (2000&ndash;2024) and compare up to 10 countries.
           </p>
@@ -228,14 +228,14 @@ export default function CountryProfileClient({
       )}
 
       {/* Compare with other countries */}
-      <div className="mt-12 bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Compare {countryName} with</h2>
+      <div className="mt-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 sm:p-8">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Compare {countryName} with</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {comparisonLinks.map((link) => (
             <Link
               key={link.slug}
               href={`/compare/${link.slug}`}
-              className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition text-gray-700 hover:text-blue-700 text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400 text-sm font-medium"
             >
               <span className="text-base leading-none">{countryFlag}</span>
               <span className="text-gray-400">vs</span>

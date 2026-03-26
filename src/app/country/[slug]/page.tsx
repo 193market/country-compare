@@ -109,8 +109,8 @@ export default async function CountryProfilePage({ params }: PageProps) {
   }).filter((x): x is NonNullable<typeof x> => x !== null);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-gradient-to-b from-blue-800 to-white px-4 pt-10 pb-14 text-center">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+      <header className="bg-gradient-to-b from-blue-800 to-white dark:from-blue-900 dark:to-gray-900 px-4 pt-10 pb-14 text-center">
         <Link href="/" className="text-blue-200 hover:text-white text-sm transition">
           &larr; Back to CountryCompare
         </Link>

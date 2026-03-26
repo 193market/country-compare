@@ -20,10 +20,10 @@ const CATEGORY_ICONS: Record<IndicatorCategory, string> = {
 
 export default function IndicatorSelector({ selected, onToggle, isPro, onProClick }: Props) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6 transition-colors">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-gray-900">Indicators</h3>
-        <div className="flex items-center gap-3 text-xs text-gray-500">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Indicators</h3>
+        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-green-500" />
             Free
@@ -39,10 +39,10 @@ export default function IndicatorSelector({ selected, onToggle, isPro, onProClic
           const indicators = getIndicatorsByCategory(cat);
           return (
             <div key={cat}>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
                 {CATEGORY_ICONS[cat]} {cat}
                 {cat !== 'Overview' && !isPro && (
-                  <span className="ml-1.5 text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">PRO</span>
+                  <span className="ml-1.5 text-[10px] font-medium text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">PRO</span>
                 )}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
@@ -56,14 +56,14 @@ export default function IndicatorSelector({ selected, onToggle, isPro, onProClic
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-left text-xs transition
                         ${canToggle
                           ? isChecked
-                            ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                            : 'hover:bg-gray-50 text-gray-700 border border-transparent'
-                          : 'text-gray-400 cursor-pointer hover:bg-amber-50 border border-transparent'
+                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border border-transparent'
+                          : 'text-gray-400 dark:text-gray-500 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/20 border border-transparent'
                         }`}
                     >
                       {canToggle ? (
                         <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center text-[10px] flex-shrink-0 ${
-                          isChecked ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300'
+                          isChecked ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 dark:border-gray-600'
                         }`}>
                           {isChecked && '\u2713'}
                         </span>
@@ -79,14 +79,14 @@ export default function IndicatorSelector({ selected, onToggle, isPro, onProClic
           );
         })}
       </div>
-      <div className="mt-4 pt-3 border-t border-gray-100 text-center">
+      <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 text-center">
         {isPro ? (
-          <p className="text-xs text-green-600 font-medium">
+          <p className="text-xs text-green-600 dark:text-green-400 font-medium">
             &#10003; Pro active &middot; Full 25-year data (2000-2024)
           </p>
         ) : (
-          <p className="text-xs text-gray-500">
-            Free: Recent 10 years (2014-2024) &middot; <span className="text-amber-600 font-medium">Pro: Full 25-year data</span>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Free: Recent 10 years (2014-2024) &middot; <span className="text-amber-600 dark:text-amber-400 font-medium">Pro: Full 25-year data</span>
           </p>
         )}
       </div>

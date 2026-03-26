@@ -158,20 +158,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* Hero */}
       <header className="bg-gradient-to-b from-blue-800 to-white px-4 pt-12 pb-16 text-center">
-        <div className="flex items-center justify-center gap-3">
-          <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight">
-            CountryCompare
-          </h1>
-          {isPro && (
-            <span className="px-2.5 py-1 bg-amber-400 text-amber-900 text-xs font-bold rounded-full shadow">
-              PRO
-            </span>
-          )}
-        </div>
+        <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight">
+          Compare Economies of 200+ Countries
+        </h1>
         <p className="mt-3 text-lg text-blue-100">
-          Compare economies of 200+ countries
+          Real-time data from the World Bank &middot; 50+ economic indicators
         </p>
       </header>
 
@@ -396,13 +389,43 @@ export default function Home() {
             ))}
           </div>
         </div>
-      </main>
 
-      {/* Footer */}
-      <footer className="mt-16 border-t border-gray-200 bg-white py-8 text-center text-sm text-gray-500">
-        <p>Data source: World Bank Open Data</p>
-        <p className="mt-1">Built by GlobalData Store</p>
-      </footer>
+        {/* How it Works */}
+        <div className="mt-12">
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">How it works</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {[
+              { step: '1', title: 'Select two countries', desc: 'Choose from 200+ countries around the world' },
+              { step: '2', title: 'Compare 50+ indicators', desc: 'GDP, population, trade, energy, and more' },
+              { step: '3', title: 'Download reports', desc: 'Export charts and data for your research' },
+            ].map((item) => (
+              <div key={item.step} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
+                <div className="mx-auto w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-lg mb-3">
+                  {item.step}
+                </div>
+                <h3 className="font-semibold text-gray-900">{item.title}</h3>
+                <p className="mt-1 text-sm text-gray-500">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Trust & Stats */}
+        <div className="mt-12 mb-4 flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-gray-500">
+          <div className="flex items-center gap-2">
+            <span className="text-blue-600">&#9679;</span>
+            Trusted data from World Bank
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-blue-600">&#9679;</span>
+            1,225+ country comparisons available
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-blue-600">&#9679;</span>
+            Updated daily
+          </div>
+        </div>
+      </main>
 
       {/* Pro Modal */}
       <ProModal open={showProModal} onClose={() => setShowProModal(false)} />

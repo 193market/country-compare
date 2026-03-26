@@ -61,15 +61,18 @@ export function findCountryBySlug(slug: string): CountryInfo | undefined {
   return COUNTRIES.find((c) => c.slug === slug);
 }
 
-export function parseCompareSlug(slug: string): { a: CountryInfo; b: CountryInfo } | null {
+export function parseCompareSlug(slug: string): CountryInfo[] | null {
   const parts = slug.split('-vs-');
-  if (parts.length !== 2) return null;
+  if (parts.length < 2) return null;
 
-  const a = findCountryBySlug(parts[0]);
-  const b = findCountryBySlug(parts[1]);
+  const countries: CountryInfo[] = [];
+  for (const part of parts) {
+    const country = findCountryBySlug(part);
+    if (!country) return null;
+    countries.push(country);
+  }
 
-  if (!a || !b) return null;
-  return { a, b };
+  return countries.length >= 2 ? countries : null;
 }
 
 export function getAllCompareSlugs(): string[] {

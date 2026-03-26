@@ -16,19 +16,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const parsed = parseCompareSlug(slug);
   if (!parsed) return { title: 'Not Found' };
 
-  const { a, b } = parsed;
-  const ogUrl = `/api/og?a=${encodeURIComponent(a.name)}&b=${encodeURIComponent(b.name)}&codeA=${a.code}&codeB=${b.code}`;
+  const names = parsed.map((c) => c.name);
+  const title = names.join(' vs ');
+  const ogUrl = `/api/og?a=${encodeURIComponent(parsed[0].name)}&b=${encodeURIComponent(parsed[1].name)}&codeA=${parsed[0].code}&codeB=${parsed[1].code}`;
+
   return {
-    title: `${a.name} vs ${b.name} Economy Comparison | CountryCompare`,
-    description: `Compare GDP, population, unemployment, inflation and life expectancy between ${a.name} and ${b.name} with interactive charts and data from World Bank.`,
+    title: `${title} Economy Comparison | CountryCompare`,
+    description: `Compare GDP, population, unemployment, inflation and life expectancy between ${names.join(', ')} with interactive charts and data from World Bank.`,
     openGraph: {
-      title: `${a.name} vs ${b.name} Economy Comparison`,
-      description: `Compare economic indicators between ${a.name} and ${b.name} with World Bank data.`,
+      title: `${title} Economy Comparison`,
+      description: `Compare economic indicators between ${names.join(', ')} with World Bank data.`,
       images: [{ url: ogUrl, width: 1200, height: 630 }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${a.name} vs ${b.name} Economy Comparison`,
+      title: `${title} Economy Comparison`,
       images: [ogUrl],
     },
   };
@@ -53,14 +55,16 @@ export default async function ComparePage({ params }: PageProps) {
   const parsed = parseCompareSlug(slug);
   if (!parsed) notFound();
 
-  const { a, b } = parsed;
-  const relatedComparisons = getRelatedComparisons(a, b, 6);
+  const countryCodes = parsed.map((c) => c.code);
+  const relatedComparisons = getRelatedComparisons(parsed[0], parsed[1], 6);
+  const title = parsed.map((c) => c.name).join(' vs ');
+  const yearRange = parsed.length > 2 ? '2000\u20132024' : '2014\u20132024';
 
   // Fetch free indicators
   const freeResults: CompareResult[] = [];
   for (const ind of FREE_INDICATORS) {
     try {
-      const raw = await fetchIndicator([a.code, b.code], ind.id);
+      const raw = await fetchIndicator(countryCodes, ind.id);
       const grouped: Record<string, CountryResult> = {};
       for (const item of raw) {
         if (!grouped[item.countryCode]) {
@@ -85,7 +89,7 @@ export default async function ComparePage({ params }: PageProps) {
   const proResults: CompareResult[] = [];
   for (const ind of proSample) {
     try {
-      const raw = await fetchIndicator([a.code, b.code], ind.id);
+      const raw = await fetchIndicator(countryCodes, ind.id);
       const grouped: Record<string, CountryResult> = {};
       for (const item of raw) {
         if (!grouped[item.countryCode]) {
@@ -105,18 +109,19 @@ export default async function ComparePage({ params }: PageProps) {
     }
   }
 
+  const countryEntries = parsed.map((c) => ({ code: c.code, name: c.name }));
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-gradient-to-b from-blue-800 to-white px-4 pt-10 pb-14 text-center">
         <Link href="/" className="text-blue-200 hover:text-white text-sm transition">
           &larr; Back to CountryCompare
         </Link>
         <h1 className="mt-4 text-3xl sm:text-4xl font-bold text-white tracking-tight">
-          {a.name} vs {b.name}
+          {title}
         </h1>
         <p className="mt-2 text-lg text-blue-100">
-          Economy Comparison (2014&ndash;2024)
+          Economy Comparison ({yearRange})
         </p>
       </header>
 
@@ -124,10 +129,7 @@ export default async function ComparePage({ params }: PageProps) {
         <CompareResultsClient
           freeResults={freeResults}
           proResults={proResults}
-          codeA={a.code}
-          codeB={b.code}
-          nameA={a.name}
-          nameB={b.name}
+          countries={countryEntries}
         />
         {/* Related Comparisons */}
         <div className="mt-12 bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">

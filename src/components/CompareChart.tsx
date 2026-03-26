@@ -15,16 +15,30 @@ import { Line } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
-interface CountryData {
+export const COUNTRY_COLORS = [
+  '#2563EB', // blue
+  '#DC2626', // red
+  '#16A34A', // green
+  '#EA580C', // orange
+  '#9333EA', // purple
+  '#0891B2', // cyan
+  '#EC4899', // pink
+  '#92400E', // brown
+  '#6B7280', // gray
+  '#111827', // black
+];
+
+export interface CountryChartEntry {
+  code: string;
   countryName: string;
   data: { year: string; value: number | null }[];
+  color: string;
 }
 
 interface CompareChartProps {
   indicatorName: string;
   format: string;
-  countryA: { code: string } & CountryData;
-  countryB: { code: string } & CountryData;
+  countries: CountryChartEntry[];
   locked?: boolean;
   onUnlock?: () => void;
   isPro?: boolean;
@@ -49,39 +63,28 @@ export function formatTableValue(val: number | null, format: string): string {
   return formatValue(val, format);
 }
 
-export default function CompareChart({ indicatorName, format, countryA, countryB, locked, onUnlock, isPro, onDownload }: CompareChartProps) {
+export default function CompareChart({ indicatorName, format, countries, locked, onUnlock, isPro, onDownload }: CompareChartProps) {
   const chartRef = useRef<ChartJS<'line'>>(null);
 
   const allYears = Array.from(
-    new Set([...countryA.data.map((d) => d.year), ...countryB.data.map((d) => d.year)])
+    new Set(countries.flatMap((c) => c.data.map((d) => d.year)))
   ).sort();
 
-  const mapA = new Map(countryA.data.map((d) => [d.year, d.value]));
-  const mapB = new Map(countryB.data.map((d) => [d.year, d.value]));
+  const datasets = countries.map((country) => {
+    const valueMap = new Map(country.data.map((d) => [d.year, d.value]));
+    return {
+      label: country.countryName,
+      data: allYears.map((y) => valueMap.get(y) ?? null),
+      borderColor: country.color,
+      backgroundColor: country.color + '20',
+      tension: 0.3,
+      pointRadius: countries.length > 5 ? 1 : 2,
+      pointHoverRadius: 5,
+      borderWidth: countries.length > 5 ? 1.5 : 2,
+    };
+  });
 
-  const data = {
-    labels: allYears,
-    datasets: [
-      {
-        label: countryA.countryName,
-        data: allYears.map((y) => mapA.get(y) ?? null),
-        borderColor: '#2563EB',
-        backgroundColor: '#2563EB20',
-        tension: 0.3,
-        pointRadius: 2,
-        pointHoverRadius: 5,
-      },
-      {
-        label: countryB.countryName,
-        data: allYears.map((y) => mapB.get(y) ?? null),
-        borderColor: '#DC2626',
-        backgroundColor: '#DC262620',
-        tension: 0.3,
-        pointRadius: 2,
-        pointHoverRadius: 5,
-      },
-    ],
-  };
+  const data = { labels: allYears, datasets };
 
   const options = {
     responsive: true,
@@ -92,6 +95,14 @@ export default function CompareChart({ indicatorName, format, countryA, countryB
         text: indicatorName,
         font: { size: 14, weight: 'bold' as const },
         color: '#1F2937',
+      },
+      legend: {
+        position: 'bottom' as const,
+        labels: {
+          boxWidth: 12,
+          padding: 8,
+          font: { size: countries.length > 5 ? 10 : 12 },
+        },
       },
       tooltip: {
         callbacks: {
@@ -139,7 +150,6 @@ export default function CompareChart({ indicatorName, format, countryA, countryB
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 relative overflow-hidden">
-      {/* Download button */}
       {!locked && (
         <button
           onClick={handleDownload}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { formatTableValue } from '@/components/CompareChart';
+import { formatTableValue, COUNTRY_COLORS } from '@/components/CompareChart';
 import IndicatorSelector from '@/components/IndicatorSelector';
 import ProModal from '@/components/ProModal';
 import CountrySearch from '@/components/CountrySearch';
@@ -11,6 +11,9 @@ import { countryCodeToFlag } from '@/lib/flags';
 import { INDICATORS, FREE_INDICATORS, PRO_INDICATORS } from '@/lib/indicators';
 
 const CompareChart = dynamic(() => import('@/components/CompareChart'), { ssr: false });
+
+const MAX_COUNTRIES_FREE = 2;
+const MAX_COUNTRIES_PRO = 10;
 
 const POPULAR_COMPARISONS = [
   { slug: 'south-korea-vs-japan', label: 'South Korea vs Japan' },
@@ -71,8 +74,7 @@ function filterFreeYears(data: { year: string; value: number | null }[]) {
 
 export default function Home() {
   const [countries, setCountries] = useState<CountryOption[]>([]);
-  const [countryA, setCountryA] = useState('KR');
-  const [countryB, setCountryB] = useState('JP');
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(['KR', 'JP']);
   const [results, setResults] = useState<CompareResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [countriesLoading, setCountriesLoading] = useState(true);
@@ -83,7 +85,6 @@ export default function Home() {
   const [proChecked, setProChecked] = useState(false);
   const [showProModal, setShowProModal] = useState(false);
 
-  // Check Pro status on mount
   useEffect(() => {
     fetch('/api/auth/status')
       .then((r) => r.json())
@@ -100,7 +101,6 @@ export default function Home() {
       .finally(() => setCountriesLoading(false));
   }, []);
 
-  // If Pro, select all indicators
   useEffect(() => {
     if (isPro && proChecked) {
       setSelectedIndicators(new Set(INDICATORS.map((i) => i.id)));
@@ -116,16 +116,43 @@ export default function Home() {
     });
   }, []);
 
+  const handleAddCountry = () => {
+    if (!isPro && selectedCountries.length >= MAX_COUNTRIES_FREE) {
+      setShowProModal(true);
+      return;
+    }
+    if (selectedCountries.length >= MAX_COUNTRIES_PRO) return;
+    // Pick a default country not already selected
+    const available = countries.find((c) => !selectedCountries.includes(c.id));
+    if (available) {
+      setSelectedCountries((prev) => [...prev, available.id]);
+    }
+  };
+
+  const handleRemoveCountry = (index: number) => {
+    if (selectedCountries.length <= 2) return;
+    setSelectedCountries((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCountryChange = (index: number, code: string) => {
+    setSelectedCountries((prev) => {
+      const next = [...prev];
+      next[index] = code;
+      return next;
+    });
+  };
+
   const handleCompare = useCallback(async () => {
-    if (!countryA || !countryB) return;
+    if (selectedCountries.length < 2) return;
     setLoading(true);
     setResults([]);
 
+    const countriesParam = selectedCountries.join(',');
     const freeToFetch = FREE_INDICATORS.filter((i) => selectedIndicators.has(i.id));
 
     try {
       const freeFetches = freeToFetch.map((ind) =>
-        fetch(`/api/compare?countries=${countryA},${countryB}&indicator=${ind.id}`)
+        fetch(`/api/compare?countries=${countriesParam}&indicator=${ind.id}`)
           .then((r) => r.json())
           .catch(() => null)
       );
@@ -134,14 +161,14 @@ export default function Home() {
       if (isPro) {
         const proToFetch = PRO_INDICATORS.filter((i) => selectedIndicators.has(i.id));
         proFetches = proToFetch.map((ind) =>
-          fetch(`/api/compare?countries=${countryA},${countryB}&indicator=${ind.id}`)
+          fetch(`/api/compare?countries=${countriesParam}&indicator=${ind.id}`)
             .then((r) => r.json())
             .catch(() => null)
         );
       } else {
         const proSample = PRO_INDICATORS.slice(0, 6);
         proFetches = proSample.map((ind) =>
-          fetch(`/api/compare?countries=${countryA},${countryB}&indicator=${ind.id}`)
+          fetch(`/api/compare?countries=${countriesParam}&indicator=${ind.id}`)
             .then((r) => r.json())
             .catch(() => null)
         );
@@ -161,7 +188,13 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [countryA, countryB, selectedIndicators, isPro]);
+  }, [selectedCountries, selectedIndicators, isPro]);
+
+  const getCountryName = (code: string): string => {
+    const fromResults = results[0]?.countries[code]?.countryName;
+    if (fromResults) return fromResults;
+    return countries.find((c) => c.id === code)?.name || code;
+  };
 
   const getLatestValue = (result: CompareResult, code: string): number | null => {
     const country = result.countries[code];
@@ -177,31 +210,37 @@ export default function Home() {
       setShowProModal(true);
       return;
     }
-    const header = `Indicator,${nameA},${nameB}`;
+    const header = ['Indicator', ...selectedCountries.map(getCountryName)].join(',');
     const lines = rows.map((r) => {
-      const valA = getLatestValue(r, countryA);
-      const valB = getLatestValue(r, countryB);
-      return `"${r.indicator.name}",${valA ?? ''},${valB ?? ''}`;
+      const vals = selectedCountries.map((code) => getLatestValue(r, code) ?? '');
+      return `"${r.indicator.name}",${vals.join(',')}`;
     });
     const csv = [header, ...lines].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `countrycompare_${countryA}_vs_${countryB}_${new Date().getFullYear()}.csv`;
+    a.download = `countrycompare_${selectedCountries.join('_vs_')}_${new Date().getFullYear()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const nameA = results[0]?.countries[countryA]?.countryName
-    || countries.find((c) => c.id === countryA)?.name
-    || countryA;
-  const nameB = results[0]?.countries[countryB]?.countryName
-    || countries.find((c) => c.id === countryB)?.name
-    || countryB;
+  const buildChartCountries = (result: CompareResult, applyFreeFilter: boolean) => {
+    return selectedCountries.map((code, i) => {
+      const raw = result.countries[code] || { countryName: getCountryName(code), data: [] };
+      return {
+        code,
+        countryName: raw.countryName,
+        data: applyFreeFilter && !isPro ? filterFreeYears(raw.data) : raw.data,
+        color: COUNTRY_COLORS[i % COUNTRY_COLORS.length],
+      };
+    });
+  };
 
   const freeResults = results.filter((r) => r.indicator.tier !== 'pro');
   const proResults = results.filter((r) => r.indicator.tier === 'pro');
+
+  const maxCountries = isPro ? MAX_COUNTRIES_PRO : MAX_COUNTRIES_FREE;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -218,29 +257,66 @@ export default function Home() {
       <main className="mx-auto max-w-6xl px-4 -mt-8">
         {/* Country Selection */}
         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 sm:p-8">
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-4 items-end">
-            <CountrySearch
-              label="Country A"
-              value={countryA}
-              countries={countries}
-              loading={countriesLoading}
-              onChange={setCountryA}
-            />
-            <CountrySearch
-              label="Country B"
-              value={countryB}
-              countries={countries}
-              loading={countriesLoading}
-              onChange={setCountryB}
-            />
+          <div className="space-y-3">
+            {selectedCountries.map((code, index) => (
+              <div key={index} className="flex items-end gap-2">
+                <span
+                  className="w-3 h-3 rounded-full flex-shrink-0 mb-3"
+                  style={{ backgroundColor: COUNTRY_COLORS[index % COUNTRY_COLORS.length] }}
+                />
+                <div className="flex-1">
+                  <CountrySearch
+                    label={index === 0 ? 'Countries' : ''}
+                    value={code}
+                    countries={countries}
+                    loading={countriesLoading}
+                    onChange={(newCode) => handleCountryChange(index, newCode)}
+                  />
+                </div>
+                {selectedCountries.length > 2 && (
+                  <button
+                    onClick={() => handleRemoveCountry(index)}
+                    className="mb-0.5 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition cursor-pointer"
+                    title="Remove country"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={handleAddCountry}
+              disabled={countriesLoading || selectedCountries.length >= maxCountries}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-dashed border-gray-300 text-sm font-medium text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Country
+              {!isPro && selectedCountries.length >= MAX_COUNTRIES_FREE && (
+                <span className="ml-1 text-xs font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">PRO</span>
+              )}
+            </button>
+            <div className="flex-1" />
             <button
               onClick={handleCompare}
-              disabled={loading || countriesLoading}
+              disabled={loading || countriesLoading || selectedCountries.length < 2}
               className="h-[42px] px-8 rounded-lg bg-blue-700 text-white font-semibold shadow-sm hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer"
             >
               {loading ? 'Loading...' : 'Compare'}
             </button>
           </div>
+
+          {selectedCountries.length > 2 && (
+            <p className="mt-2 text-xs text-gray-400">
+              Comparing {selectedCountries.length} countries &middot; Up to {maxCountries} allowed
+            </p>
+          )}
         </div>
 
         {/* Indicator Selector */}
@@ -259,21 +335,16 @@ export default function Home() {
         {!loading && freeResults.length > 0 && (
           <>
             <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {freeResults.map((result) => {
-                const rawA = result.countries[countryA] || { countryName: nameA, data: [] };
-                const rawB = result.countries[countryB] || { countryName: nameB, data: [] };
-                return (
-                  <CompareChart
-                    key={result.indicator.id}
-                    indicatorName={result.indicator.name}
-                    format={result.indicator.format}
-                    countryA={{ code: countryA, countryName: rawA.countryName, data: isPro ? rawA.data : filterFreeYears(rawA.data) }}
-                    countryB={{ code: countryB, countryName: rawB.countryName, data: isPro ? rawB.data : filterFreeYears(rawB.data) }}
-                    isPro={isPro}
-                    onDownload={() => setShowProModal(true)}
-                  />
-                );
-              })}
+              {freeResults.map((result) => (
+                <CompareChart
+                  key={result.indicator.id}
+                  indicatorName={result.indicator.name}
+                  format={result.indicator.format}
+                  countries={buildChartCountries(result, true)}
+                  isPro={isPro}
+                  onDownload={() => setShowProModal(true)}
+                />
+              ))}
             </div>
 
             {/* Comparison Table */}
@@ -294,27 +365,29 @@ export default function Home() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 text-gray-600">
-                      <th className="text-left px-6 py-3 font-medium">Indicator</th>
-                      <th className="text-right px-6 py-3 font-medium">
-                        <span className="inline-block w-3 h-3 rounded-full bg-blue-600 mr-2 align-middle" />
-                        {nameA}
-                      </th>
-                      <th className="text-right px-6 py-3 font-medium">
-                        <span className="inline-block w-3 h-3 rounded-full bg-red-600 mr-2 align-middle" />
-                        {nameB}
-                      </th>
+                      <th className="text-left px-6 py-3 font-medium sticky left-0 bg-gray-50 z-10 min-w-[180px]">Indicator</th>
+                      {selectedCountries.map((code, i) => (
+                        <th key={code} className="text-right px-6 py-3 font-medium whitespace-nowrap min-w-[120px]">
+                          <span
+                            className="inline-block w-3 h-3 rounded-full mr-2 align-middle"
+                            style={{ backgroundColor: COUNTRY_COLORS[i % COUNTRY_COLORS.length] }}
+                          />
+                          {getCountryName(code)}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {freeResults.map((result, i) => (
                       <tr key={result.indicator.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="px-6 py-3 text-gray-900 font-medium">{result.indicator.name}</td>
-                        <td className="px-6 py-3 text-right text-gray-700">
-                          {formatTableValue(getLatestValue(result, countryA), result.indicator.format)}
+                        <td className={`px-6 py-3 text-gray-900 font-medium sticky left-0 z-10 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                          {result.indicator.name}
                         </td>
-                        <td className="px-6 py-3 text-right text-gray-700">
-                          {formatTableValue(getLatestValue(result, countryB), result.indicator.format)}
-                        </td>
+                        {selectedCountries.map((code) => (
+                          <td key={code} className="px-6 py-3 text-right text-gray-700 whitespace-nowrap">
+                            {formatTableValue(getLatestValue(result, code), result.indicator.format)}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
@@ -328,9 +401,7 @@ export default function Home() {
         {!loading && proResults.length > 0 && (
           <div className="mt-10">
             <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Pro Indicators
-              </h2>
+              <h2 className="text-lg font-semibold text-gray-900">Pro Indicators</h2>
               {!isPro && (
                 <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
                   45 indicators
@@ -338,23 +409,18 @@ export default function Home() {
               )}
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {proResults.map((result) => {
-                const rawA = result.countries[countryA] || { countryName: nameA, data: [] };
-                const rawB = result.countries[countryB] || { countryName: nameB, data: [] };
-                return (
-                  <CompareChart
-                    key={result.indicator.id}
-                    indicatorName={result.indicator.name}
-                    format={result.indicator.format}
-                    countryA={{ code: countryA, ...rawA }}
-                    countryB={{ code: countryB, ...rawB }}
-                    locked={!isPro}
-                    onUnlock={() => setShowProModal(true)}
-                    isPro={isPro}
-                    onDownload={() => setShowProModal(true)}
-                  />
-                );
-              })}
+              {proResults.map((result) => (
+                <CompareChart
+                  key={result.indicator.id}
+                  indicatorName={result.indicator.name}
+                  format={result.indicator.format}
+                  countries={buildChartCountries(result, false)}
+                  locked={!isPro}
+                  onUnlock={() => setShowProModal(true)}
+                  isPro={isPro}
+                  onDownload={() => setShowProModal(true)}
+                />
+              ))}
             </div>
 
             {/* Pro table when unlocked */}
@@ -376,21 +442,29 @@ export default function Home() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50 text-gray-600">
-                        <th className="text-left px-6 py-3 font-medium">Indicator</th>
-                        <th className="text-right px-6 py-3 font-medium">{nameA}</th>
-                        <th className="text-right px-6 py-3 font-medium">{nameB}</th>
+                        <th className="text-left px-6 py-3 font-medium sticky left-0 bg-gray-50 z-10 min-w-[180px]">Indicator</th>
+                        {selectedCountries.map((code, i) => (
+                          <th key={code} className="text-right px-6 py-3 font-medium whitespace-nowrap min-w-[120px]">
+                            <span
+                              className="inline-block w-3 h-3 rounded-full mr-2 align-middle"
+                              style={{ backgroundColor: COUNTRY_COLORS[i % COUNTRY_COLORS.length] }}
+                            />
+                            {getCountryName(code)}
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
                       {proResults.map((result, i) => (
                         <tr key={result.indicator.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          <td className="px-6 py-3 text-gray-900 font-medium">{result.indicator.name}</td>
-                          <td className="px-6 py-3 text-right text-gray-700">
-                            {formatTableValue(getLatestValue(result, countryA), result.indicator.format)}
+                          <td className={`px-6 py-3 text-gray-900 font-medium sticky left-0 z-10 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                            {result.indicator.name}
                           </td>
-                          <td className="px-6 py-3 text-right text-gray-700">
-                            {formatTableValue(getLatestValue(result, countryB), result.indicator.format)}
-                          </td>
+                          {selectedCountries.map((code) => (
+                            <td key={code} className="px-6 py-3 text-right text-gray-700 whitespace-nowrap">
+                              {formatTableValue(getLatestValue(result, code), result.indicator.format)}
+                            </td>
+                          ))}
                         </tr>
                       ))}
                     </tbody>
@@ -401,14 +475,14 @@ export default function Home() {
           </div>
         )}
 
-        {/* Pro CTA Banner (only for free users) */}
+        {/* Pro CTA Banner */}
         {!isPro && !loading && results.length > 0 && (
           <div className="mt-10 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-6 sm:p-8 text-center">
             <p className="text-2xl mb-2">&#128274;</p>
-            <h3 className="text-xl font-bold text-gray-900">Unlock All 50 Indicators</h3>
+            <h3 className="text-xl font-bold text-gray-900">Unlock All 50 Indicators &amp; 10-Country Comparison</h3>
             <p className="mt-2 text-sm text-gray-600 max-w-lg mx-auto">
-              Get access to Economy, Labor, Society, Energy, and Trade indicators
-              with full 25-year historical data (2000&ndash;2024).
+              Compare up to 10 countries at once with 50 economic indicators
+              and full 25-year historical data (2000&ndash;2024).
             </p>
             <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
@@ -462,7 +536,7 @@ export default function Home() {
           <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">How it works</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {[
-              { step: '1', title: 'Select two countries', desc: 'Choose from 200+ countries around the world' },
+              { step: '1', title: 'Select countries', desc: 'Choose from 200+ countries — up to 10 with Pro' },
               { step: '2', title: 'Compare 50+ indicators', desc: 'GDP, population, trade, energy, and more' },
               { step: '3', title: 'Download reports', desc: 'Export charts and data for your research' },
             ].map((item) => (
@@ -494,7 +568,6 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Pro Modal */}
       <ProModal open={showProModal} onClose={() => setShowProModal(false)} />
     </div>
   );

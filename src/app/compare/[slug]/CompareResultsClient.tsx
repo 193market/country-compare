@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { formatTableValue } from '@/components/CompareChart';
+import { formatTableValue, COUNTRY_COLORS } from '@/components/CompareChart';
 import ProModal from '@/components/ProModal';
 
 const CompareChart = dynamic(() => import('@/components/CompareChart'), { ssr: false });
@@ -17,13 +17,15 @@ interface CompareResult {
   countries: Record<string, CountryResult>;
 }
 
+interface CountryEntry {
+  code: string;
+  name: string;
+}
+
 interface Props {
   freeResults: CompareResult[];
   proResults: CompareResult[];
-  codeA: string;
-  codeB: string;
-  nameA: string;
-  nameB: string;
+  countries: CountryEntry[];
 }
 
 const FREE_YEAR_START = 2014;
@@ -41,7 +43,7 @@ function getLatestValue(result: CompareResult, code: string): number | null {
   return null;
 }
 
-export default function CompareResultsClient({ freeResults, proResults, codeA, codeB, nameA, nameB }: Props) {
+export default function CompareResultsClient({ freeResults, proResults, countries }: Props) {
   const [showProModal, setShowProModal] = useState(false);
   const [isPro, setIsPro] = useState(false);
 
@@ -52,23 +54,36 @@ export default function CompareResultsClient({ freeResults, proResults, codeA, c
       .catch(() => {});
   }, []);
 
+  const codes = countries.map((c) => c.code);
+
+  const buildChartCountries = (result: CompareResult, applyFreeFilter: boolean) => {
+    return countries.map((c, i) => {
+      const raw = result.countries[c.code] || { countryName: c.name, data: [] };
+      return {
+        code: c.code,
+        countryName: raw.countryName,
+        data: applyFreeFilter && !isPro ? filterFreeYears(raw.data) : raw.data,
+        color: COUNTRY_COLORS[i % COUNTRY_COLORS.length],
+      };
+    });
+  };
+
   const handleExportCsv = (rows: CompareResult[]) => {
     if (!isPro) {
       setShowProModal(true);
       return;
     }
-    const header = `Indicator,${nameA},${nameB}`;
+    const header = ['Indicator', ...countries.map((c) => c.name)].join(',');
     const lines = rows.map((r) => {
-      const valA = getLatestValue(r, codeA);
-      const valB = getLatestValue(r, codeB);
-      return `"${r.indicator.name}",${valA ?? ''},${valB ?? ''}`;
+      const vals = codes.map((code) => getLatestValue(r, code) ?? '');
+      return `"${r.indicator.name}",${vals.join(',')}`;
     });
     const csv = [header, ...lines].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `countrycompare_${codeA}_vs_${codeB}_${new Date().getFullYear()}.csv`;
+    a.download = `countrycompare_${codes.join('_vs_')}_${new Date().getFullYear()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -85,21 +100,16 @@ export default function CompareResultsClient({ freeResults, proResults, codeA, c
     <>
       {/* Free Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {freeResults.map((result) => {
-          const rawA = result.countries[codeA] || { countryName: nameA, data: [] };
-          const rawB = result.countries[codeB] || { countryName: nameB, data: [] };
-          return (
-            <CompareChart
-              key={result.indicator.id}
-              indicatorName={result.indicator.name}
-              format={result.indicator.format}
-              countryA={{ code: codeA, countryName: rawA.countryName, data: isPro ? rawA.data : filterFreeYears(rawA.data) }}
-              countryB={{ code: codeB, countryName: rawB.countryName, data: isPro ? rawB.data : filterFreeYears(rawB.data) }}
-              isPro={isPro}
-              onDownload={() => setShowProModal(true)}
-            />
-          );
-        })}
+        {freeResults.map((result) => (
+          <CompareChart
+            key={result.indicator.id}
+            indicatorName={result.indicator.name}
+            format={result.indicator.format}
+            countries={buildChartCountries(result, true)}
+            isPro={isPro}
+            onDownload={() => setShowProModal(true)}
+          />
+        ))}
       </div>
 
       {/* Comparison Table */}
@@ -121,27 +131,29 @@ export default function CompareResultsClient({ freeResults, proResults, codeA, c
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-gray-600">
-                  <th className="text-left px-6 py-3 font-medium">Indicator</th>
-                  <th className="text-right px-6 py-3 font-medium">
-                    <span className="inline-block w-3 h-3 rounded-full bg-blue-600 mr-2 align-middle" />
-                    {nameA}
-                  </th>
-                  <th className="text-right px-6 py-3 font-medium">
-                    <span className="inline-block w-3 h-3 rounded-full bg-red-600 mr-2 align-middle" />
-                    {nameB}
-                  </th>
+                  <th className="text-left px-6 py-3 font-medium sticky left-0 bg-gray-50 z-10 min-w-[180px]">Indicator</th>
+                  {countries.map((c, i) => (
+                    <th key={c.code} className="text-right px-6 py-3 font-medium whitespace-nowrap min-w-[120px]">
+                      <span
+                        className="inline-block w-3 h-3 rounded-full mr-2 align-middle"
+                        style={{ backgroundColor: COUNTRY_COLORS[i % COUNTRY_COLORS.length] }}
+                      />
+                      {c.name}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {freeResults.map((result, i) => (
                   <tr key={result.indicator.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-6 py-3 text-gray-900 font-medium">{result.indicator.name}</td>
-                    <td className="px-6 py-3 text-right text-gray-700">
-                      {formatTableValue(getLatestValue(result, codeA), result.indicator.format)}
+                    <td className={`px-6 py-3 text-gray-900 font-medium sticky left-0 z-10 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                      {result.indicator.name}
                     </td>
-                    <td className="px-6 py-3 text-right text-gray-700">
-                      {formatTableValue(getLatestValue(result, codeB), result.indicator.format)}
-                    </td>
+                    {codes.map((code) => (
+                      <td key={code} className="px-6 py-3 text-right text-gray-700 whitespace-nowrap">
+                        {formatTableValue(getLatestValue(result, code), result.indicator.format)}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
@@ -162,35 +174,30 @@ export default function CompareResultsClient({ freeResults, proResults, codeA, c
             )}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {proResults.map((result) => {
-              const rawA = result.countries[codeA] || { countryName: nameA, data: [] };
-              const rawB = result.countries[codeB] || { countryName: nameB, data: [] };
-              return (
-                <CompareChart
-                  key={result.indicator.id}
-                  indicatorName={result.indicator.name}
-                  format={result.indicator.format}
-                  countryA={{ code: codeA, ...rawA }}
-                  countryB={{ code: codeB, ...rawB }}
-                  locked={!isPro}
-                  onUnlock={() => setShowProModal(true)}
-                  isPro={isPro}
-                  onDownload={() => setShowProModal(true)}
-                />
-              );
-            })}
+            {proResults.map((result) => (
+              <CompareChart
+                key={result.indicator.id}
+                indicatorName={result.indicator.name}
+                format={result.indicator.format}
+                countries={buildChartCountries(result, false)}
+                locked={!isPro}
+                onUnlock={() => setShowProModal(true)}
+                isPro={isPro}
+                onDownload={() => setShowProModal(true)}
+              />
+            ))}
           </div>
         </div>
       )}
 
-      {/* Pro CTA (free users only) */}
+      {/* Pro CTA */}
       {!isPro && (
         <div className="mt-10 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-6 sm:p-8 text-center">
           <p className="text-2xl mb-2">&#128274;</p>
-          <h3 className="text-xl font-bold text-gray-900">Unlock All 50 Indicators</h3>
+          <h3 className="text-xl font-bold text-gray-900">Unlock All 50 Indicators &amp; 10-Country Comparison</h3>
           <p className="mt-2 text-sm text-gray-600 max-w-lg mx-auto">
-            Get access to Economy, Labor, Society, Energy, and Trade indicators
-            with full 25-year historical data (2000&ndash;2024).
+            Compare up to 10 countries at once with 50 economic indicators
+            and full 25-year historical data (2000&ndash;2024).
           </p>
           <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
             <button

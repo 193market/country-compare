@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 import { getAllCompareSlugs } from '@/lib/countries';
 
-const BASE_URL = 'https://country-compare-wheat.vercel.app';
+const BASE_URL = 'https://country-compare.com';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const compareSlugs = getAllCompareSlugs();

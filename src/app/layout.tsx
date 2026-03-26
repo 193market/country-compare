@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://countrycompare.org"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://country-compare.com"),
   title: "CountryCompare - Compare Economies of 200+ Countries",
   description:
     "Compare economic indicators between countries using World Bank data. GDP, population, unemployment, inflation, and 50+ indicators with interactive charts.",

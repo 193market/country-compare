@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: '/api/',
     },
-    sitemap: 'https://country-compare-wheat.vercel.app/sitemap.xml',
+    sitemap: 'https://country-compare.com/sitemap.xml',
   };
 }

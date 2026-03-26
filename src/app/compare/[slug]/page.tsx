@@ -1,7 +1,8 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { parseCompareSlug, getAllCompareSlugs } from '@/lib/countries';
+import { parseCompareSlug, getAllCompareSlugs, getRelatedComparisons } from '@/lib/countries';
+import { countryCodeToFlag } from '@/lib/flags';
 import { fetchIndicator } from '@/lib/worldbank';
 import { FREE_INDICATORS, PRO_INDICATORS } from '@/lib/indicators';
 import CompareResultsClient from './CompareResultsClient';
@@ -53,6 +54,7 @@ export default async function ComparePage({ params }: PageProps) {
   if (!parsed) notFound();
 
   const { a, b } = parsed;
+  const relatedComparisons = getRelatedComparisons(a, b, 6);
 
   // Fetch free indicators
   const freeResults: CompareResult[] = [];
@@ -127,6 +129,23 @@ export default async function ComparePage({ params }: PageProps) {
           nameA={a.name}
           nameB={b.name}
         />
+        {/* Related Comparisons */}
+        <div className="mt-12 bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Related Comparisons</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {relatedComparisons.map((item) => (
+              <Link
+                key={item.slug}
+                href={`/compare/${item.slug}`}
+                className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition text-gray-700 hover:text-blue-700 text-sm font-medium"
+              >
+                <span className="text-base leading-none">{countryCodeToFlag(item.codeA)}</span>
+                <span className="text-base leading-none">{countryCodeToFlag(item.codeB)}</span>
+                {item.nameA} vs {item.nameB}
+              </Link>
+            ))}
+          </div>
+        </div>
       </main>
     </div>
   );

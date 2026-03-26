@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import CompareChart, { formatTableValue } from '@/components/CompareChart';
+import dynamic from 'next/dynamic';
+import { formatTableValue } from '@/components/CompareChart';
 import ProModal from '@/components/ProModal';
+
+const CompareChart = dynamic(() => import('@/components/CompareChart'), { ssr: false });
 
 interface CountryResult {
   countryName: string;

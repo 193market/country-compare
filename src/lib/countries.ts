@@ -81,3 +81,30 @@ export function getAllCompareSlugs(): string[] {
   }
   return slugs;
 }
+
+export function getRelatedComparisons(a: CountryInfo, b: CountryInfo, count = 6): { slug: string; nameA: string; nameB: string; codeA: string; codeB: string }[] {
+  const currentSlug = `${a.slug}-vs-${b.slug}`;
+  const related: { slug: string; nameA: string; nameB: string; codeA: string; codeB: string }[] = [];
+  const seen = new Set<string>([currentSlug]);
+
+  for (const c of COUNTRIES) {
+    if (related.length >= count) break;
+    if (c.slug === a.slug || c.slug === b.slug) continue;
+
+    // a vs c
+    const slug1 = `${a.slug}-vs-${c.slug}`;
+    if (!seen.has(slug1) && related.length < count) {
+      seen.add(slug1);
+      related.push({ slug: slug1, nameA: a.name, nameB: c.name, codeA: a.code, codeB: c.code });
+    }
+
+    // b vs c
+    const slug2 = `${b.slug}-vs-${c.slug}`;
+    if (!seen.has(slug2) && related.length < count) {
+      seen.add(slug2);
+      related.push({ slug: slug2, nameA: b.name, nameB: c.name, codeA: b.code, codeB: c.code });
+    }
+  }
+
+  return related;
+}

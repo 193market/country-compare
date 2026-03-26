@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import CompareChart, { formatTableValue } from '@/components/CompareChart';
+import dynamic from 'next/dynamic';
+import { formatTableValue } from '@/components/CompareChart';
 import IndicatorSelector from '@/components/IndicatorSelector';
 import ProModal from '@/components/ProModal';
 import CountrySearch from '@/components/CountrySearch';
+import { countryCodeToFlag } from '@/lib/flags';
 import { INDICATORS, FREE_INDICATORS, PRO_INDICATORS } from '@/lib/indicators';
+
+const CompareChart = dynamic(() => import('@/components/CompareChart'), { ssr: false });
 
 const POPULAR_COMPARISONS = [
   { slug: 'south-korea-vs-japan', label: 'South Korea vs Japan' },
@@ -19,6 +23,29 @@ const POPULAR_COMPARISONS = [
   { slug: 'united-states-vs-united-kingdom', label: 'United States vs United Kingdom' },
   { slug: 'singapore-vs-south-korea', label: 'Singapore vs South Korea' },
   { slug: 'mexico-vs-brazil', label: 'Mexico vs Brazil' },
+];
+
+const RECENT_COMPARISONS = [
+  { slug: 'united-states-vs-china', codeA: 'US', codeB: 'CN', label: 'United States vs China' },
+  { slug: 'south-korea-vs-japan', codeA: 'KR', codeB: 'JP', label: 'South Korea vs Japan' },
+  { slug: 'india-vs-brazil', codeA: 'IN', codeB: 'BR', label: 'India vs Brazil' },
+  { slug: 'germany-vs-france', codeA: 'DE', codeB: 'FR', label: 'Germany vs France' },
+  { slug: 'united-kingdom-vs-germany', codeA: 'GB', codeB: 'DE', label: 'United Kingdom vs Germany' },
+  { slug: 'japan-vs-china', codeA: 'JP', codeB: 'CN', label: 'Japan vs China' },
+  { slug: 'australia-vs-canada', codeA: 'AU', codeB: 'CA', label: 'Australia vs Canada' },
+  { slug: 'united-states-vs-india', codeA: 'US', codeB: 'IN', label: 'United States vs India' },
+  { slug: 'south-korea-vs-china', codeA: 'KR', codeB: 'CN', label: 'South Korea vs China' },
+  { slug: 'united-states-vs-japan', codeA: 'US', codeB: 'JP', label: 'United States vs Japan' },
+  { slug: 'germany-vs-italy', codeA: 'DE', codeB: 'IT', label: 'Germany vs Italy' },
+  { slug: 'mexico-vs-brazil', codeA: 'MX', codeB: 'BR', label: 'Mexico vs Brazil' },
+  { slug: 'india-vs-china', codeA: 'IN', codeB: 'CN', label: 'India vs China' },
+  { slug: 'united-states-vs-south-korea', codeA: 'US', codeB: 'KR', label: 'United States vs South Korea' },
+  { slug: 'france-vs-italy', codeA: 'FR', codeB: 'IT', label: 'France vs Italy' },
+  { slug: 'singapore-vs-south-korea', codeA: 'SG', codeB: 'KR', label: 'Singapore vs South Korea' },
+  { slug: 'japan-vs-india', codeA: 'JP', codeB: 'IN', label: 'Japan vs India' },
+  { slug: 'united-kingdom-vs-france', codeA: 'GB', codeB: 'FR', label: 'United Kingdom vs France' },
+  { slug: 'australia-vs-new-zealand', codeA: 'AU', codeB: 'NZ', label: 'Australia vs New Zealand' },
+  { slug: 'spain-vs-italy', codeA: 'ES', codeB: 'IT', label: 'Spain vs Italy' },
 ];
 
 interface CountryOption {
@@ -406,6 +433,24 @@ export default function Home() {
                 className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition text-gray-700 hover:text-blue-700 text-sm font-medium"
               >
                 <span className="text-blue-500">&rarr;</span>
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Comparisons by Users */}
+        <div className="mt-12 bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Comparisons by Users</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {RECENT_COMPARISONS.map((item) => (
+              <Link
+                key={item.slug}
+                href={`/compare/${item.slug}`}
+                className="flex items-center gap-2 px-4 py-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition text-gray-700 hover:text-blue-700 text-sm font-medium"
+              >
+                <span className="text-base leading-none">{countryCodeToFlag(item.codeA)}</span>
+                <span className="text-base leading-none">{countryCodeToFlag(item.codeB)}</span>
                 {item.label}
               </Link>
             ))}

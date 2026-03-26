@@ -238,6 +238,27 @@ export default function Home() {
     });
   };
 
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleDownloadReport = async () => {
+    setPdfLoading(true);
+    try {
+      const res = await fetch(`/api/report?countries=${selectedCountries.join(',')}`);
+      if (!res.ok) throw new Error('Failed to generate report');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `CountryCompare_${selectedCountries.join('_vs_')}_Report_${new Date().getFullYear()}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Failed to generate PDF report. Please try again.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const freeResults = results.filter((r) => r.indicator.tier !== 'pro');
   const proResults = results.filter((r) => r.indicator.tier === 'pro');
 
@@ -332,10 +353,34 @@ export default function Home() {
           </div>
         )}
 
+        {/* Download Report Bar */}
+        {!loading && freeResults.length > 0 && (
+          <div className="mt-8 flex items-center justify-between bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {selectedCountries.map(getCountryName).join(' vs ')}
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {isPro ? '50 indicators · 2000–2024' : '5 indicators · 2014–2024'}
+              </p>
+            </div>
+            <button
+              onClick={handleDownloadReport}
+              disabled={pdfLoading}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-700 text-white font-semibold text-sm shadow-sm hover:bg-blue-800 disabled:opacity-50 transition cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3" />
+              </svg>
+              {pdfLoading ? 'Generating...' : 'Download Report (PDF)'}
+            </button>
+          </div>
+        )}
+
         {/* Free Charts */}
         {!loading && freeResults.length > 0 && (
           <>
-            <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
               {freeResults.map((result) => (
                 <CompareChart
                   key={result.indicator.id}

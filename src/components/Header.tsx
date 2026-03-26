@@ -22,6 +22,7 @@ export default function Header() {
 
   const links = [
     { href: '/', label: 'Home' },
+    { href: '/#countries', label: 'Countries' },
     { href: '/pricing', label: 'Pricing' },
     { href: '/about', label: 'About' },
   ];
@@ -46,7 +47,7 @@ export default function Header() {
               key={link.href}
               href={link.href}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                pathname === link.href
+                pathname === link.href || (link.href === '/#countries' && pathname === '/')
                   ? 'text-blue-700 bg-blue-50'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               }`}
@@ -82,7 +83,7 @@ export default function Header() {
               key={link.href}
               href={link.href}
               className={`block px-3 py-2 rounded-md text-sm font-medium ${
-                pathname === link.href
+                pathname === link.href || (link.href === '/#countries' && pathname === '/')
                   ? 'text-blue-700 bg-blue-50'
                   : 'text-gray-600 hover:bg-gray-50'
               }`}

@@ -8,6 +8,7 @@ import IndicatorSelector from '@/components/IndicatorSelector';
 import ProModal from '@/components/ProModal';
 import CountrySearch from '@/components/CountrySearch';
 import { countryCodeToFlag } from '@/lib/flags';
+import { COUNTRIES } from '@/lib/countries';
 import { INDICATORS, FREE_INDICATORS, PRO_INDICATORS } from '@/lib/indicators';
 
 const CompareChart = dynamic(() => import('@/components/CompareChart'), { ssr: false });
@@ -526,6 +527,23 @@ export default function Home() {
                 <span className="text-base leading-none">{countryCodeToFlag(item.codeA)}</span>
                 <span className="text-base leading-none">{countryCodeToFlag(item.codeB)}</span>
                 {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Explore Countries */}
+        <div id="countries" className="mt-12 bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Explore Countries</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {COUNTRIES.map((c) => (
+              <Link
+                key={c.slug}
+                href={`/country/${c.slug}`}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-gray-100 hover:border-blue-300 hover:bg-blue-50 transition text-gray-700 hover:text-blue-700 text-sm font-medium"
+              >
+                <span className="text-base leading-none">{countryCodeToFlag(c.code)}</span>
+                <span className="truncate">{c.name}</span>
               </Link>
             ))}
           </div>

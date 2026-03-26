@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   title: "CountryCompare - Compare Economies of 200+ Countries",
   description:
     "Compare economic indicators between countries using World Bank data. GDP, population, unemployment, inflation, and 50+ indicators with interactive charts.",
+  verification: {
+    google: 'mwxLw9ETAs-_Pmz5v9SrZKzyZhvhCdgykKwBrD_SC0A',
+  },
 };
 
 export default function RootLayout({

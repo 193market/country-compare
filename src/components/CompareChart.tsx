@@ -24,6 +24,8 @@ interface CompareChartProps {
   format: string;
   countryA: { code: string } & CountryData;
   countryB: { code: string } & CountryData;
+  locked?: boolean;
+  onUnlock?: () => void;
 }
 
 function formatValue(val: number | null, format: string): string {
@@ -44,7 +46,7 @@ export function formatTableValue(val: number | null, format: string): string {
   return formatValue(val, format);
 }
 
-export default function CompareChart({ indicatorName, format, countryA, countryB }: CompareChartProps) {
+export default function CompareChart({ indicatorName, format, countryA, countryB, locked, onUnlock }: CompareChartProps) {
   const allYears = Array.from(
     new Set([...countryA.data.map((d) => d.year), ...countryB.data.map((d) => d.year)])
   ).sort();
@@ -117,10 +119,27 @@ export default function CompareChart({ indicatorName, format, countryA, countryB
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
-      <div className="h-64 sm:h-72">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 relative overflow-hidden">
+      <div className={`h-64 sm:h-72 ${locked ? 'blur-[6px] pointer-events-none select-none' : ''}`}>
         <Line data={data} options={options} />
       </div>
+      {locked && (
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 cursor-pointer"
+          onClick={onUnlock}
+        >
+          <div className="text-4xl mb-3">&#128274;</div>
+          <p className="text-sm font-semibold text-gray-800 text-center px-4">
+            Unlock 50 indicators with Pro
+          </p>
+          <p className="text-xs text-gray-500 mt-1">$9/month</p>
+          <button
+            className="mt-3 px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-semibold rounded-lg shadow hover:from-amber-600 hover:to-orange-600 transition cursor-pointer"
+          >
+            Upgrade to Pro
+          </button>
+        </div>
+      )}
     </div>
   );
 }

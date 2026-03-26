@@ -21,15 +21,15 @@ export async function GET(request: NextRequest) {
 
   if (!indicator) {
     return NextResponse.json(
-      { error: `Unknown indicator: ${indicatorParam}`, available: INDICATORS.map((i) => i.id) },
+      { error: `Unknown indicator: ${indicatorParam}` },
       { status: 400 }
     );
   }
 
+  // Free tier: 2014-2024, Pro: 2000-2024 (enforced client-side for now)
   try {
     const raw = await fetchIndicator(countryCodes, indicatorParam);
 
-    // Group by country
     const grouped: Record<string, { countryName: string; data: { year: string; value: number | null }[] }> = {};
 
     for (const item of raw) {
@@ -39,13 +39,12 @@ export async function GET(request: NextRequest) {
       grouped[item.countryCode].data.push({ year: item.date, value: item.value });
     }
 
-    // Sort each country's data by year ascending
     for (const code of Object.keys(grouped)) {
       grouped[code].data.sort((a, b) => a.year.localeCompare(b.year));
     }
 
     return NextResponse.json({
-      indicator: { id: indicator.id, name: indicator.name, format: indicator.format },
+      indicator: { id: indicator.id, name: indicator.name, format: indicator.format, tier: indicator.tier },
       countries: grouped,
     });
   } catch (err) {

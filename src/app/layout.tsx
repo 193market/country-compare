@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   description:
     "Compare economic indicators between countries using World Bank data. GDP, population, unemployment, inflation, and 50+ indicators with interactive charts.",
   verification: {
-    google: 'mwxLw9ETAs-_Pmz5v9SrZKzyZhvhCdgykKwBrD_SC0A',
+    google: 'AVHLc-6WoB4TTmgD7BSA5X7JUBqkR8JGBmcJeWKcZI4',
   },
 };
 

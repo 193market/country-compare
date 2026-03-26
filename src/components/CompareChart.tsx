@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -26,6 +27,8 @@ interface CompareChartProps {
   countryB: { code: string } & CountryData;
   locked?: boolean;
   onUnlock?: () => void;
+  isPro?: boolean;
+  onDownload?: () => void;
 }
 
 function formatValue(val: number | null, format: string): string {
@@ -46,7 +49,9 @@ export function formatTableValue(val: number | null, format: string): string {
   return formatValue(val, format);
 }
 
-export default function CompareChart({ indicatorName, format, countryA, countryB, locked, onUnlock }: CompareChartProps) {
+export default function CompareChart({ indicatorName, format, countryA, countryB, locked, onUnlock, isPro, onDownload }: CompareChartProps) {
+  const chartRef = useRef<ChartJS<'line'>>(null);
+
   const allYears = Array.from(
     new Set([...countryA.data.map((d) => d.year), ...countryB.data.map((d) => d.year)])
   ).sort();
@@ -118,10 +123,37 @@ export default function CompareChart({ indicatorName, format, countryA, countryB
     },
   };
 
+  const handleDownload = () => {
+    if (!isPro) {
+      onDownload?.();
+      return;
+    }
+    const chart = chartRef.current;
+    if (!chart) return;
+    const url = chart.toBase64Image('image/png', 1);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${indicatorName.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+    a.click();
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 relative overflow-hidden">
+      {/* Download button */}
+      {!locked && (
+        <button
+          onClick={handleDownload}
+          className="absolute top-3 right-3 z-10 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition cursor-pointer"
+          title={isPro ? 'Download PNG' : 'Pro feature'}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
+          </svg>
+        </button>
+      )}
+
       <div className={`h-64 sm:h-72 ${locked ? 'blur-[6px] pointer-events-none select-none' : ''}`}>
-        <Line data={data} options={options} />
+        <Line ref={chartRef} data={data} options={options} />
       </div>
       {locked && (
         <div

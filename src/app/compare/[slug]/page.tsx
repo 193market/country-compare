@@ -16,9 +16,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!parsed) return { title: 'Not Found' };
 
   const { a, b } = parsed;
+  const ogUrl = `/api/og?a=${encodeURIComponent(a.name)}&b=${encodeURIComponent(b.name)}&codeA=${a.code}&codeB=${b.code}`;
   return {
     title: `${a.name} vs ${b.name} Economy Comparison | CountryCompare`,
     description: `Compare GDP, population, unemployment, inflation and life expectancy between ${a.name} and ${b.name} with interactive charts and data from World Bank.`,
+    openGraph: {
+      title: `${a.name} vs ${b.name} Economy Comparison`,
+      description: `Compare economic indicators between ${a.name} and ${b.name} with World Bank data.`,
+      images: [{ url: ogUrl, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${a.name} vs ${b.name} Economy Comparison`,
+      images: [ogUrl],
+    },
   };
 }
 
@@ -117,12 +128,6 @@ export default async function ComparePage({ params }: PageProps) {
           nameB={b.name}
         />
       </main>
-
-      {/* Footer */}
-      <footer className="mt-16 border-t border-gray-200 bg-white py-8 text-center text-sm text-gray-500">
-        <p>Data source: World Bank Open Data</p>
-        <p className="mt-1">Built by GlobalData Store</p>
-      </footer>
     </div>
   );
 }

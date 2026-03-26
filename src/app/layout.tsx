@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Analytics from "@/components/Analytics";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,6 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://countrycompare.org"),
   title: "CountryCompare - Compare Economies of 200+ Countries",
   description:
     "Compare economic indicators between countries using World Bank data. GDP, population, unemployment, inflation, and 50+ indicators with interactive charts.",
@@ -31,6 +33,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <Analytics />
         <Header />
         {children}
         <Footer />

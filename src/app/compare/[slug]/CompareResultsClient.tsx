@@ -49,6 +49,27 @@ export default function CompareResultsClient({ freeResults, proResults, codeA, c
       .catch(() => {});
   }, []);
 
+  const handleExportCsv = (rows: CompareResult[]) => {
+    if (!isPro) {
+      setShowProModal(true);
+      return;
+    }
+    const header = `Indicator,${nameA},${nameB}`;
+    const lines = rows.map((r) => {
+      const valA = getLatestValue(r, codeA);
+      const valB = getLatestValue(r, codeB);
+      return `"${r.indicator.name}",${valA ?? ''},${valB ?? ''}`;
+    });
+    const csv = [header, ...lines].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `countrycompare_${codeA}_vs_${codeB}_${new Date().getFullYear()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (freeResults.length === 0 && proResults.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-500">
@@ -71,6 +92,8 @@ export default function CompareResultsClient({ freeResults, proResults, codeA, c
               format={result.indicator.format}
               countryA={{ code: codeA, countryName: rawA.countryName, data: isPro ? rawA.data : filterFreeYears(rawA.data) }}
               countryB={{ code: codeB, countryName: rawB.countryName, data: isPro ? rawB.data : filterFreeYears(rawB.data) }}
+              isPro={isPro}
+              onDownload={() => setShowProModal(true)}
             />
           );
         })}
@@ -79,8 +102,17 @@ export default function CompareResultsClient({ freeResults, proResults, codeA, c
       {/* Comparison Table */}
       {freeResults.length > 0 && (
         <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Latest Data Comparison</h2>
+            <button
+              onClick={() => handleExportCsv(freeResults)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition cursor-pointer"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
+              </svg>
+              Export CSV
+            </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -139,6 +171,8 @@ export default function CompareResultsClient({ freeResults, proResults, codeA, c
                   countryB={{ code: codeB, ...rawB }}
                   locked={!isPro}
                   onUnlock={() => setShowProModal(true)}
+                  isPro={isPro}
+                  onDownload={() => setShowProModal(true)}
                 />
               );
             })}

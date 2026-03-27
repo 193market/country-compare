@@ -14,15 +14,20 @@
     "publish:youtube": "npx ts-node --project scripts/tsconfig.json scripts/upload-youtube.ts"
   },
   "dependencies": {
+    "@remotion/bundler": "^4.0.441",
+    "@remotion/media-utils": "^4.0.441",
+    "@remotion/renderer": "^4.0.441",
     "chart.js": "^4.5.1",
     "googleapis": "^171.4.0",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
+    "msedge-tts": "^2.0.4",
     "next": "16.2.1",
     "react": "19.2.4",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.4",
+    "remotion": "^4.0.441",
     "ts-node": "^10.9.2"
   },
   "devDependencies": {

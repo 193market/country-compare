@@ -1,20 +1,18 @@
 /**
  * generate-video.ts
  * Picks 2 random countries, fetches World Bank data, generates narration script,
- * calls TopView AI API to create a video, downloads the result.
+ * creates TTS audio via ElevenLabs, renders animated chart video via Remotion.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { bundle } from '@remotion/bundler';
+import { renderMedia, selectComposition } from '@remotion/renderer';
+import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 
 const WB_BASE_URL = 'https://api.worldbank.org/v2';
-const TOPVIEW_API_KEY = process.env.TOPVIEW_API_KEY || 'sk-5vXmUaBSD8HsTpRObkgUNNUUZU9c-X3kjS2pE0m2BpY';
-const TOPVIEW_UID = process.env.TOPVIEW_UID || 'PEIwqZJbzzjWChXaVDWo';
-const TOPVIEW_BASE = 'https://api.topview.ai/v1';
 const OUTPUT_DIR = path.join(__dirname, 'output');
-
-const POLL_INTERVAL_MS = 15_000; // 15 seconds
-const MAX_POLL_MINUTES = 20;
+const REMOTION_ENTRY = path.join(__dirname, 'remotion', 'src', 'index.tsx');
 
 interface Country {
   slug: string;
@@ -88,6 +86,8 @@ export function pickTwo(): [Country, Country] {
   return [shuffled[0], shuffled[1]];
 }
 
+// ─── World Bank Data ─────────────────────────────
+
 async function fetchIndicator(codes: string, indicatorId: string): Promise<any[]> {
   const url = `${WB_BASE_URL}/country/${codes}/indicator/${indicatorId}?format=json&date=2000:2024&per_page=500`;
   const res = await fetch(url);
@@ -103,6 +103,35 @@ function getLatestValue(data: any[], countryCode: string): { value: number | nul
   if (match.length > 0) return { value: match[0].value, year: match[0].date };
   return { value: null, year: '' };
 }
+
+export interface IndicatorData {
+  name: string;
+  format: string;
+  vA: number | null;
+  vB: number | null;
+}
+
+export async function fetchCountryData(countryA: Country, countryB: Country): Promise<IndicatorData[]> {
+  const codes = `${countryA.code};${countryB.code}`;
+  const indicatorData: IndicatorData[] = [];
+
+  for (const ind of INDICATORS) {
+    console.log(`[video] Fetching ${ind.name}...`);
+    const raw = await fetchIndicator(codes, ind.id);
+    const latestA = getLatestValue(raw, countryA.code);
+    const latestB = getLatestValue(raw, countryB.code);
+    indicatorData.push({
+      name: ind.name,
+      format: ind.format,
+      vA: latestA.value,
+      vB: latestB.value,
+    });
+  }
+
+  return indicatorData;
+}
+
+// ─── Narration Script ────────────────────────────
 
 function formatSpoken(value: number | null, format: string): string {
   if (value === null) return 'data not available';
@@ -124,13 +153,6 @@ function formatSpoken(value: number | null, format: string): string {
     default:
       return String(value);
   }
-}
-
-export interface IndicatorData {
-  name: string;
-  format: string;
-  vA: number | null;
-  vB: number | null;
 }
 
 export function generateScript(a: Country, b: Country, data: IndicatorData[]): string {
@@ -160,130 +182,94 @@ export function generateScript(a: Country, b: Country, data: IndicatorData[]): s
   return lines.join('');
 }
 
-export async function fetchCountryData(countryA: Country, countryB: Country): Promise<IndicatorData[]> {
-  const codes = `${countryA.code};${countryB.code}`;
-  const indicatorData: IndicatorData[] = [];
+// ─── Edge TTS (Microsoft) ────────────────────────
 
-  for (const ind of INDICATORS) {
-    console.log(`[video] Fetching ${ind.name}...`);
-    const raw = await fetchIndicator(codes, ind.id);
-    const latestA = getLatestValue(raw, countryA.code);
-    const latestB = getLatestValue(raw, countryB.code);
-    indicatorData.push({
-      name: ind.name,
-      format: ind.format,
-      vA: latestA.value,
-      vB: latestB.value,
+async function generateAudio(text: string, outputPath: string): Promise<void> {
+  console.log(`[video] Generating TTS audio via Edge TTS (${text.length} chars)...`);
+
+  const tts = new MsEdgeTTS();
+  await tts.setMetadata('en-US-AriaNeural', OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
+
+  const { audioStream } = tts.toStream(text);
+
+  const chunks: Buffer[] = [];
+  await new Promise<void>((resolve, reject) => {
+    audioStream.on('data', (chunk: any) => {
+      if (chunk instanceof Buffer) chunks.push(chunk);
     });
-  }
-
-  return indicatorData;
-}
-
-// ──────────────────────────────────────────────
-// TopView AI Integration (Video Avatar API)
-// ──────────────────────────────────────────────
-
-function topviewHeaders(): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${TOPVIEW_API_KEY}`,
-    'Topview-Uid': TOPVIEW_UID,
-  };
-}
-
-async function submitVideoAvatarTask(script: string): Promise<string> {
-  console.log('[video] Submitting Video Avatar task to TopView AI...');
-
-  const body = {
-    avatarSourceFrom: '1',   // default AI avatar
-    aiAvatarId: '3327',      // default avatar
-    audioSourceFrom: '1',    // text-to-speech
-    ttsText: script,
-    voiceSpeed: 1,
-    modeType: '2',           // avatar4 (high quality)
-  };
-
-  const res = await fetch(`${TOPVIEW_BASE}/video_avatar/task/submit`, {
-    method: 'POST',
-    headers: topviewHeaders(),
-    body: JSON.stringify(body),
+    audioStream.on('end', () => resolve());
+    audioStream.on('error', (err: Error) => reject(err));
   });
 
-  const json: any = await res.json();
-  console.log(`[video] Submit response: ${JSON.stringify(json)}`);
-
-  if (!res.ok || (json.code !== '200' && json.code !== '0')) {
-    throw new Error(`TopView submit error: ${JSON.stringify(json)}`);
-  }
-
-  const taskId = json.result?.taskId;
-  if (!taskId) throw new Error(`TopView: no taskId in response: ${JSON.stringify(json)}`);
-
-  console.log(`[video] TopView task submitted: ${taskId}`);
-  return taskId;
-}
-
-interface TopViewQueryResult {
-  status: string;
-  videoUrl?: string;
-}
-
-async function queryVideoAvatarTask(taskId: string): Promise<TopViewQueryResult> {
-  const res = await fetch(`${TOPVIEW_BASE}/video_avatar/task/query?taskId=${taskId}`, {
-    method: 'GET',
-    headers: topviewHeaders(),
-  });
-
-  const json: any = await res.json();
-  if (!res.ok || (json.code !== '200' && json.code !== '0')) {
-    throw new Error(`TopView query error: ${JSON.stringify(json)}`);
-  }
-
-  const result = json.result;
-  const status = result?.status;
-
-  if (status === 'fail' || status === 'error') {
-    console.error(`[video] TopView task failed: ${result?.errorMsg || 'unknown error'}`);
-    console.error(`[video] Full response:\n${JSON.stringify(result, null, 2)}`);
-  }
-
-  if (status === 'success' && result?.outputVideoUrl) {
-    return { status: 'success', videoUrl: result.outputVideoUrl };
-  }
-
-  return { status: status || 'unknown' };
-}
-
-async function pollUntilReady(taskId: string): Promise<TopViewQueryResult> {
-  const maxAttempts = Math.ceil((MAX_POLL_MINUTES * 60 * 1000) / POLL_INTERVAL_MS);
-
-  for (let i = 0; i < maxAttempts; i++) {
-    const result = await queryVideoAvatarTask(taskId);
-    console.log(`[video] Poll ${i + 1}/${maxAttempts}: status=${result.status}`);
-
-    if (result.status === 'success' && result.videoUrl) {
-      return result;
-    }
-
-    if (result.status === 'fail' || result.status === 'error') {
-      throw new Error('TopView video generation failed');
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-  }
-
-  throw new Error(`TopView: timed out after ${MAX_POLL_MINUTES} minutes`);
-}
-
-async function downloadVideo(videoUrl: string, outputPath: string): Promise<void> {
-  console.log(`[video] Downloading video from TopView...`);
-  const res = await fetch(videoUrl);
-  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
-  const buffer = Buffer.from(await res.arrayBuffer());
+  const buffer = Buffer.concat(chunks);
   fs.writeFileSync(outputPath, buffer);
-  console.log(`[video] Video saved: ${outputPath} (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`);
+  console.log(`[video] Audio saved: ${outputPath} (${(buffer.length / 1024).toFixed(0)} KB)`);
 }
+
+// ─── Remotion Rendering ──────────────────────────
+
+async function renderVideo(
+  countryA: Country,
+  countryB: Country,
+  indicatorData: IndicatorData[],
+  audioPath: string,
+  outputPath: string
+): Promise<void> {
+  console.log('[video] Bundling Remotion composition...');
+
+  // Copy audio to output dir as "audio.mp3" so Remotion staticFile() can find it
+  const staticAudioPath = path.join(OUTPUT_DIR, 'audio.mp3');
+  if (audioPath !== staticAudioPath) {
+    fs.copyFileSync(audioPath, staticAudioPath);
+  }
+
+  const bundled = await bundle({
+    entryPoint: REMOTION_ENTRY,
+    publicDir: OUTPUT_DIR, // audio.mp3 lives here
+  });
+
+  console.log('[video] Bundle complete. Selecting composition...');
+
+  const FPS = 30;
+  // 5s title + 5 indicators * 9s + 10s summary + 7s CTA = 67s
+  const totalDurationFrames = (5 + 5 * 9 + 10 + 7) * FPS;
+
+  const inputProps = {
+    countryA,
+    countryB,
+    indicators: indicatorData.map((d) => ({
+      name: d.name,
+      valueA: d.vA,
+      valueB: d.vB,
+      format: d.format,
+      label: d.name,
+    })),
+    audioDurationInFrames: totalDurationFrames,
+  };
+
+  const composition = await selectComposition({
+    serveUrl: bundled,
+    id: 'CountryComparison',
+    inputProps,
+  });
+
+  // Override duration
+  composition.durationInFrames = totalDurationFrames;
+
+  console.log(`[video] Rendering ${totalDurationFrames} frames (${totalDurationFrames / FPS}s) at 1920x1080...`);
+
+  await renderMedia({
+    composition,
+    serveUrl: bundled,
+    codec: 'h264',
+    outputLocation: outputPath,
+    inputProps,
+  });
+
+  console.log(`[video] Video rendered: ${outputPath}`);
+}
+
+// ─── Main ────────────────────────────────────────
 
 export interface VideoResult {
   success: boolean;
@@ -305,9 +291,10 @@ export async function run(options?: {
     }
 
     // 1. Pick two random countries (or use provided ones)
-    const [countryA, countryB] = options?.countryA && options?.countryB
-      ? [options.countryA, options.countryB]
-      : pickTwo();
+    const [countryA, countryB] =
+      options?.countryA && options?.countryB
+        ? [options.countryA, options.countryB]
+        : pickTwo();
     console.log(`[video] Selected: ${countryA.name} vs ${countryB.name}`);
 
     // 2. Fetch World Bank data
@@ -322,28 +309,20 @@ export async function run(options?: {
     console.log(script);
     console.log(`[video] --- End Script ---`);
 
-    // 4. Submit to TopView AI (Video Avatar)
-    const taskId = await submitVideoAvatarTask(script);
+    // 4. Generate TTS audio via ElevenLabs
+    const audioPath = path.join(OUTPUT_DIR, 'audio.mp3');
+    await generateAudio(script, audioPath);
 
-    // 5. Poll until video is ready
-    const queryResult = await pollUntilReady(taskId);
-
-    // 6. Download the video
+    // 5. Render video via Remotion
     const videoPath = path.join(OUTPUT_DIR, 'video.mp4');
-    await downloadVideo(queryResult.videoUrl!, videoPath);
+    await renderVideo(countryA, countryB, indicatorData, audioPath, videoPath);
 
     console.log(`[video] Done!`);
     console.log(`[video]   Script: ${scriptPath}`);
+    console.log(`[video]   Audio:  ${audioPath}`);
     console.log(`[video]   Video:  ${videoPath}`);
 
-    return {
-      success: true,
-      countryA,
-      countryB,
-      scriptPath,
-      videoPath,
-      script,
-    };
+    return { success: true, countryA, countryB, scriptPath, videoPath, script };
   } catch (error: any) {
     console.error(`[video] Failed: ${error.message}`);
     return { success: false, error: error.message };

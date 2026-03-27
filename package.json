@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "auto-publish": "npx ts-node --project scripts/tsconfig.json scripts/auto-publish.ts",
+    "publish:article": "npx ts-node --project scripts/tsconfig.json scripts/generate-article.ts",
+    "publish:dataset": "npx ts-node --project scripts/tsconfig.json scripts/generate-dataset.ts",
+    "publish:video": "npx ts-node --project scripts/tsconfig.json scripts/generate-video.ts"
   },
   "dependencies": {
     "chart.js": "^4.5.1",
@@ -16,7 +20,8 @@
     "next": "16.2.1",
     "react": "19.2.4",
     "react-chartjs-2": "^5.3.1",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

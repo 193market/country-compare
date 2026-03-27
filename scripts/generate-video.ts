@@ -1,15 +1,20 @@
 /**
  * generate-video.ts
- * Picks 2 random countries, fetches data, generates narration script, calls ElevenLabs TTS
+ * Picks 2 random countries, fetches World Bank data, generates narration script,
+ * calls TopView AI API to create a video, downloads the result.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 
 const WB_BASE_URL = 'https://api.worldbank.org/v2';
-const ELEVENLABS_API_KEY = 'sk_6375129fa2e5aab3dd3ac209304a485b9cbdcc620ee5b6d5';
-const ELEVENLABS_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Rachel (default)
+const TOPVIEW_API_KEY = process.env.TOPVIEW_API_KEY || 'sk-5vXmUaBSD8HsTpRObkgUNNUUZU9c-X3kjS2pE0m2BpY';
+const TOPVIEW_UID = process.env.TOPVIEW_UID || 'PEIwqZJbzzjWChXaVDWo';
+const TOPVIEW_BASE = 'https://api.topview.ai/v1';
 const OUTPUT_DIR = path.join(__dirname, 'output');
+
+const POLL_INTERVAL_MS = 15_000; // 15 seconds
+const MAX_POLL_MINUTES = 20;
 
 interface Country {
   slug: string;
@@ -17,7 +22,7 @@ interface Country {
   name: string;
 }
 
-const COUNTRIES: Country[] = [
+export const COUNTRIES: Country[] = [
   { slug: 'united-states', code: 'US', name: 'United States' },
   { slug: 'china', code: 'CN', name: 'China' },
   { slug: 'japan', code: 'JP', name: 'Japan' },
@@ -78,7 +83,7 @@ const INDICATORS = [
   { id: 'SP.DYN.LE00.IN', name: 'life expectancy', format: 'years' },
 ];
 
-function pickTwo(): [Country, Country] {
+export function pickTwo(): [Country, Country] {
   const shuffled = [...COUNTRIES].sort(() => Math.random() - 0.5);
   return [shuffled[0], shuffled[1]];
 }
@@ -121,11 +126,14 @@ function formatSpoken(value: number | null, format: string): string {
   }
 }
 
-function generateScript(
-  a: Country,
-  b: Country,
-  data: { name: string; format: string; vA: number | null; vB: number | null }[]
-): string {
+export interface IndicatorData {
+  name: string;
+  format: string;
+  vA: number | null;
+  vB: number | null;
+}
+
+export function generateScript(a: Country, b: Country, data: IndicatorData[]): string {
   const lines: string[] = [];
 
   lines.push(`Today we compare ${a.name} and ${b.name}. Two very different economies. Let's look at 5 key indicators.\n`);
@@ -152,76 +160,190 @@ function generateScript(
   return lines.join('');
 }
 
-async function generateAudio(text: string, outputPath: string): Promise<void> {
-  console.log(`[video] Calling ElevenLabs TTS (${text.length} chars)...`);
+export async function fetchCountryData(countryA: Country, countryB: Country): Promise<IndicatorData[]> {
+  const codes = `${countryA.code};${countryB.code}`;
+  const indicatorData: IndicatorData[] = [];
 
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'xi-api-key': ELEVENLABS_API_KEY,
-    },
-    body: JSON.stringify({
-      text,
-      model_id: 'eleven_monolingual_v1',
-      voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.75,
-      },
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`ElevenLabs API error ${res.status}: ${errText}`);
+  for (const ind of INDICATORS) {
+    console.log(`[video] Fetching ${ind.name}...`);
+    const raw = await fetchIndicator(codes, ind.id);
+    const latestA = getLatestValue(raw, countryA.code);
+    const latestB = getLatestValue(raw, countryB.code);
+    indicatorData.push({
+      name: ind.name,
+      format: ind.format,
+      vA: latestA.value,
+      vB: latestB.value,
+    });
   }
 
-  const buffer = Buffer.from(await res.arrayBuffer());
-  fs.writeFileSync(outputPath, buffer);
-  console.log(`[video] Audio saved: ${outputPath} (${(buffer.length / 1024).toFixed(0)} KB)`);
+  return indicatorData;
 }
 
-export async function run(): Promise<{ success: boolean; scriptPath?: string; audioPath?: string; error?: string }> {
+// ──────────────────────────────────────────────
+// TopView AI Integration (Video Avatar API)
+// ──────────────────────────────────────────────
+
+function topviewHeaders(): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${TOPVIEW_API_KEY}`,
+    'Topview-Uid': TOPVIEW_UID,
+  };
+}
+
+async function submitVideoAvatarTask(script: string): Promise<string> {
+  console.log('[video] Submitting Video Avatar task to TopView AI...');
+
+  const body = {
+    avatarSourceFrom: '1',   // default AI avatar
+    aiAvatarId: '3327',      // default avatar
+    audioSourceFrom: '1',    // text-to-speech
+    ttsText: script,
+    voiceSpeed: 1,
+    modeType: '2',           // avatar4 (high quality)
+  };
+
+  const res = await fetch(`${TOPVIEW_BASE}/video_avatar/task/submit`, {
+    method: 'POST',
+    headers: topviewHeaders(),
+    body: JSON.stringify(body),
+  });
+
+  const json: any = await res.json();
+  console.log(`[video] Submit response: ${JSON.stringify(json)}`);
+
+  if (!res.ok || (json.code !== '200' && json.code !== '0')) {
+    throw new Error(`TopView submit error: ${JSON.stringify(json)}`);
+  }
+
+  const taskId = json.result?.taskId;
+  if (!taskId) throw new Error(`TopView: no taskId in response: ${JSON.stringify(json)}`);
+
+  console.log(`[video] TopView task submitted: ${taskId}`);
+  return taskId;
+}
+
+interface TopViewQueryResult {
+  status: string;
+  videoUrl?: string;
+}
+
+async function queryVideoAvatarTask(taskId: string): Promise<TopViewQueryResult> {
+  const res = await fetch(`${TOPVIEW_BASE}/video_avatar/task/query?taskId=${taskId}`, {
+    method: 'GET',
+    headers: topviewHeaders(),
+  });
+
+  const json: any = await res.json();
+  if (!res.ok || (json.code !== '200' && json.code !== '0')) {
+    throw new Error(`TopView query error: ${JSON.stringify(json)}`);
+  }
+
+  const result = json.result;
+  const status = result?.status;
+
+  if (status === 'fail' || status === 'error') {
+    console.error(`[video] TopView task failed: ${result?.errorMsg || 'unknown error'}`);
+    console.error(`[video] Full response:\n${JSON.stringify(result, null, 2)}`);
+  }
+
+  if (status === 'success' && result?.outputVideoUrl) {
+    return { status: 'success', videoUrl: result.outputVideoUrl };
+  }
+
+  return { status: status || 'unknown' };
+}
+
+async function pollUntilReady(taskId: string): Promise<TopViewQueryResult> {
+  const maxAttempts = Math.ceil((MAX_POLL_MINUTES * 60 * 1000) / POLL_INTERVAL_MS);
+
+  for (let i = 0; i < maxAttempts; i++) {
+    const result = await queryVideoAvatarTask(taskId);
+    console.log(`[video] Poll ${i + 1}/${maxAttempts}: status=${result.status}`);
+
+    if (result.status === 'success' && result.videoUrl) {
+      return result;
+    }
+
+    if (result.status === 'fail' || result.status === 'error') {
+      throw new Error('TopView video generation failed');
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
+
+  throw new Error(`TopView: timed out after ${MAX_POLL_MINUTES} minutes`);
+}
+
+async function downloadVideo(videoUrl: string, outputPath: string): Promise<void> {
+  console.log(`[video] Downloading video from TopView...`);
+  const res = await fetch(videoUrl);
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  const buffer = Buffer.from(await res.arrayBuffer());
+  fs.writeFileSync(outputPath, buffer);
+  console.log(`[video] Video saved: ${outputPath} (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`);
+}
+
+export interface VideoResult {
+  success: boolean;
+  countryA?: Country;
+  countryB?: Country;
+  scriptPath?: string;
+  videoPath?: string;
+  script?: string;
+  error?: string;
+}
+
+export async function run(options?: {
+  countryA?: Country;
+  countryB?: Country;
+}): Promise<VideoResult> {
   try {
     if (!fs.existsSync(OUTPUT_DIR)) {
       fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     }
 
-    // 1. Pick two random countries
-    const [countryA, countryB] = pickTwo();
+    // 1. Pick two random countries (or use provided ones)
+    const [countryA, countryB] = options?.countryA && options?.countryB
+      ? [options.countryA, options.countryB]
+      : pickTwo();
     console.log(`[video] Selected: ${countryA.name} vs ${countryB.name}`);
 
-    // 2. Fetch data
-    const codes = `${countryA.code};${countryB.code}`;
-    const indicatorData: { name: string; format: string; vA: number | null; vB: number | null }[] = [];
-
-    for (const ind of INDICATORS) {
-      console.log(`[video] Fetching ${ind.name}...`);
-      const raw = await fetchIndicator(codes, ind.id);
-      const latestA = getLatestValue(raw, countryA.code);
-      const latestB = getLatestValue(raw, countryB.code);
-      indicatorData.push({
-        name: ind.name,
-        format: ind.format,
-        vA: latestA.value,
-        vB: latestB.value,
-      });
-    }
+    // 2. Fetch World Bank data
+    const indicatorData = await fetchCountryData(countryA, countryB);
 
     // 3. Generate narration script
     const script = generateScript(countryA, countryB, indicatorData);
-    const scriptPath = path.join(OUTPUT_DIR, 'narration_script.txt');
+    const scriptPath = path.join(OUTPUT_DIR, 'script.txt');
     fs.writeFileSync(scriptPath, script, 'utf-8');
     console.log(`[video] Script saved: ${scriptPath}`);
     console.log(`[video] --- Script Preview ---`);
     console.log(script);
     console.log(`[video] --- End Script ---`);
 
-    // 4. Generate audio via ElevenLabs
-    const audioPath = path.join(OUTPUT_DIR, 'narration.mp3');
-    await generateAudio(script, audioPath);
+    // 4. Submit to TopView AI (Video Avatar)
+    const taskId = await submitVideoAvatarTask(script);
 
-    return { success: true, scriptPath, audioPath };
+    // 5. Poll until video is ready
+    const queryResult = await pollUntilReady(taskId);
+
+    // 6. Download the video
+    const videoPath = path.join(OUTPUT_DIR, 'video.mp4');
+    await downloadVideo(queryResult.videoUrl!, videoPath);
+
+    console.log(`[video] Done!`);
+    console.log(`[video]   Script: ${scriptPath}`);
+    console.log(`[video]   Video:  ${videoPath}`);
+
+    return {
+      success: true,
+      countryA,
+      countryB,
+      scriptPath,
+      videoPath,
+      script,
+    };
   } catch (error: any) {
     console.error(`[video] Failed: ${error.message}`);
     return { success: false, error: error.message };

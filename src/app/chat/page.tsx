@@ -118,24 +118,8 @@ export default function ChatPage() {
 
       if (!res.ok) throw new Error('Request failed');
 
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = '';
-
-      const assistantMessage: Message = { role: 'assistant', content: '', charts: [] };
-      setMessages([...newMessages, assistantMessage]);
-
-      while (reader) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
-
-        // 스트리밍 중에는 차트 파싱 없이 텍스트만 업데이트 (Chart.js 재생성 방지)
-        const rawText = accumulated.replace(/```chart[\s\S]*?```/g, '');
-        setMessages([...newMessages, { role: 'assistant', content: rawText, charts: [] }]);
-      }
-
-      const { text: finalText, charts: finalCharts } = parseCharts(accumulated);
+      const responseText = await res.text();
+      const { text: finalText, charts: finalCharts } = parseCharts(responseText);
       const finalMessage: Message = { role: 'assistant', content: finalText, charts: finalCharts };
       const finalMessages = [...newMessages, finalMessage];
       setMessages(finalMessages);

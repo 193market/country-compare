@@ -4,9 +4,9 @@ import { getFredSeries, searchFredSeries } from "@/lib/fred";
 import { getIndicator, compareCountries } from "@/lib/worldbank";
 import { getEcosSeries, searchEcos } from "@/lib/ecos";
 import { getEstatData, searchEstat } from "@/lib/estat";
-import { generatePDFReport } from "@/lib/reportGenerator";
-import { detectLanguage } from "@/lib/detectLanguage";
 import { verifyToken, TOKEN_COOKIE } from "@/lib/auth";
+
+export const maxDuration = 60;
 
 const BASE_SYSTEM_PROMPT = `You are CountryCompare AI, an economic analyst with access to real-time global data.
 When answering questions:
@@ -280,48 +280,9 @@ export async function POST(req: NextRequest) {
       .map((block) => block.text)
       .join("");
 
-    const reportMatch = fullText.match(/<report_analysis>([\s\S]*?)<\/report_analysis>/);
     const chatText = fullText.replace(/<report_analysis>[\s\S]*?<\/report_analysis>/, "").trim();
 
-    let pdfUrl: string | null = null;
-    if (reportMatch && Object.keys(collectedData).length > 0) {
-      try {
-        const userMsg = messages[messages.length - 1]?.content || "";
-        const language = detectLanguage(userMsg);
-        pdfUrl = await generatePDFReport({
-          question: userMsg,
-          language,
-          countries: extractedCountries,
-          indicators: collectedData,
-          analysis: reportMatch[1],
-        });
-      } catch (err) {
-        console.error("PDF generation failed:", err);
-      }
-    }
-
-    const responsePayload = pdfUrl
-      ? `${chatText}\n\n📊 **[Download Full Report (PDF)](${pdfUrl})**`
-      : chatText;
-
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      start(controller) {
-        const chunkSize = 20;
-        let i = 0;
-        const interval = setInterval(() => {
-          if (i < responsePayload.length) {
-            controller.enqueue(encoder.encode(responsePayload.slice(i, i + chunkSize)));
-            i += chunkSize;
-          } else {
-            clearInterval(interval);
-            controller.close();
-          }
-        }, 10);
-      },
-    });
-
-    return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+    return new Response(chatText, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: msg }), { status: 500 });

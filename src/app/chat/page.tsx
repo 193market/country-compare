@@ -31,6 +31,18 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
+
+  const LOADING_MESSAGES = [
+    '🔍 Searching World Bank database...',
+    '📊 Fetching economic indicators...',
+    '🌍 Collecting country data...',
+    '🧮 Analyzing trends across years...',
+    '📈 Comparing indicators...',
+    '✍️ Generating insights...',
+    '🔗 Cross-referencing data sources...',
+    '📝 Almost done, preparing response...',
+  ];
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -38,6 +50,14 @@ export default function ChatPage() {
   const [showProModal, setShowProModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!isLoading) { setLoadingStep(0); return; }
+    const interval = setInterval(() => {
+      setLoadingStep((s) => (s + 1) % LOADING_MESSAGES.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [isLoading]);
 
   useEffect(() => {
     setSessions(loadChatSessions());
@@ -242,15 +262,20 @@ export default function ChatPage() {
           )}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-gray-800 rounded-2xl rounded-tl-sm px-4 py-3">
-                <div className="flex gap-1">
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: `${i * 0.15}s` }}
-                    />
-                  ))}
+              <div className="bg-gray-800 rounded-2xl rounded-tl-sm px-4 py-3 max-w-xs">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce"
+                        style={{ animationDelay: `${i * 0.15}s` }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs text-gray-300 animate-pulse">
+                    {LOADING_MESSAGES[loadingStep]}
+                  </span>
                 </div>
               </div>
             </div>

@@ -188,11 +188,11 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
         return JSON.stringify(results);
       }
       case "compare_countries": {
-        const allResults: Record<string, unknown> = {};
-        for (const ind of input.indicators as string[]) {
-          allResults[ind] = await compareCountries(input.country_codes as string[], ind);
-        }
-        return JSON.stringify(allResults);
+        const indicators = input.indicators as string[];
+        const entries = await Promise.all(
+          indicators.map(async (ind) => [ind, await compareCountries(input.country_codes as string[], ind)])
+        );
+        return JSON.stringify(Object.fromEntries(entries));
       }
       case "search_fred":
         return JSON.stringify(await searchFredSeries(input.query as string));

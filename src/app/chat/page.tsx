@@ -110,8 +110,9 @@ export default function ChatPage() {
         if (done) break;
         accumulated += decoder.decode(value, { stream: true });
 
-        const { text: parsedText, charts } = parseCharts(accumulated);
-        setMessages([...newMessages, { role: 'assistant', content: parsedText, charts }]);
+        // 스트리밍 중에는 차트 파싱 없이 텍스트만 업데이트 (Chart.js 재생성 방지)
+        const rawText = accumulated.replace(/```chart[\s\S]*?```/g, '');
+        setMessages([...newMessages, { role: 'assistant', content: rawText, charts: [] }]);
       }
 
       const { text: finalText, charts: finalCharts } = parseCharts(accumulated);

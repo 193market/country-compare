@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
 
   try {
     let response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-5",
       max_tokens: 8192,
       system: systemPrompt,
       tools: availableTools,
@@ -267,7 +267,7 @@ export async function POST(req: NextRequest) {
       claudeMessages.push({ role: "user", content: toolResults });
 
       response = await client.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-5",
         max_tokens: 8192,
         system: systemPrompt,
         tools: availableTools,

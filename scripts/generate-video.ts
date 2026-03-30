@@ -1,7 +1,14 @@
 /**
  * generate-video.ts
  * Picks 2 random countries, fetches World Bank data, generates narration script,
- * creates TTS audio via ElevenLabs, renders animated chart video via Remotion.
+ * then creates two video types:
+ *   1. Chart video (Remotion) — 16:9 animated data visualization for YouTube
+ *   2. Avatar video (TopView AI) — AI presenter for YouTube Shorts/Reels
+ *
+ * Usage:
+ *   ts-node generate-video.ts              → both videos
+ *   ts-node generate-video.ts --chart      → chart only
+ *   ts-node generate-video.ts --avatar     → avatar only
  */
 
 import * as fs from 'fs';
@@ -11,14 +18,22 @@ import { renderMedia, selectComposition } from '@remotion/renderer';
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 
 const WB_BASE_URL = 'https://api.worldbank.org/v2';
+const TOPVIEW_API_KEY = process.env.TOPVIEW_API_KEY || 'sk-5vXmUaBSD8HsTpRObkgUNNUUZU9c-X3kjS2pE0m2BpY';
+const TOPVIEW_UID = process.env.TOPVIEW_UID || 'PEIwqZJbzzjWChXaVDWo';
+const TOPVIEW_BASE = 'https://api.topview.ai/v1';
 const OUTPUT_DIR = path.join(__dirname, 'output');
 const REMOTION_ENTRY = path.join(__dirname, 'remotion', 'src', 'index.tsx');
+
+const POLL_INTERVAL_MS = 15_000;
+const MAX_POLL_MINUTES = 20;
 
 interface Country {
   slug: string;
   code: string;
   name: string;
 }
+
+export type VideoMode = 'both' | 'chart' | 'avatar';
 
 export const COUNTRIES: Country[] = [
   { slug: 'united-states', code: 'US', name: 'United States' },
@@ -86,7 +101,9 @@ export function pickTwo(): [Country, Country] {
   return [shuffled[0], shuffled[1]];
 }
 
-// ─── World Bank Data ─────────────────────────────
+// ═══════════════════════════════════════════════
+// World Bank Data
+// ═══════════════════════════════════════════════
 
 async function fetchIndicator(codes: string, indicatorId: string): Promise<any[]> {
   const url = `${WB_BASE_URL}/country/${codes}/indicator/${indicatorId}?format=json&date=2000:2024&per_page=500`;
@@ -131,7 +148,9 @@ export async function fetchCountryData(countryA: Country, countryB: Country): Pr
   return indicatorData;
 }
 
-// ─── Narration Script ────────────────────────────
+// ═══════════════════════════════════════════════
+// Narration Script
+// ═══════════════════════════════════════════════
 
 function formatSpoken(value: number | null, format: string): string {
   if (value === null) return 'data not available';
@@ -182,7 +201,9 @@ export function generateScript(a: Country, b: Country, data: IndicatorData[]): s
   return lines.join('');
 }
 
-// ─── Edge TTS (Microsoft) ────────────────────────
+// ═══════════════════════════════════════════════
+// Edge TTS (Microsoft) — free, for Remotion chart video
+// ═══════════════════════════════════════════════
 
 async function generateAudio(text: string, outputPath: string): Promise<void> {
   console.log(`[video] Generating TTS audio via Edge TTS (${text.length} chars)...`);
@@ -206,16 +227,18 @@ async function generateAudio(text: string, outputPath: string): Promise<void> {
   console.log(`[video] Audio saved: ${outputPath} (${(buffer.length / 1024).toFixed(0)} KB)`);
 }
 
-// ─── Remotion Rendering ──────────────────────────
+// ═══════════════════════════════════════════════
+// Remotion — Chart animated video (16:9)
+// ═══════════════════════════════════════════════
 
-async function renderVideo(
+async function renderChartVideo(
   countryA: Country,
   countryB: Country,
   indicatorData: IndicatorData[],
   audioPath: string,
   outputPath: string
 ): Promise<void> {
-  console.log('[video] Bundling Remotion composition...');
+  console.log('[chart] Bundling Remotion composition...');
 
   // Copy audio to output dir as "audio.mp3" so Remotion staticFile() can find it
   const staticAudioPath = path.join(OUTPUT_DIR, 'audio.mp3');
@@ -225,14 +248,13 @@ async function renderVideo(
 
   const bundled = await bundle({
     entryPoint: REMOTION_ENTRY,
-    publicDir: OUTPUT_DIR, // audio.mp3 lives here
+    publicDir: OUTPUT_DIR,
   });
 
-  console.log('[video] Bundle complete. Selecting composition...');
+  console.log('[chart] Bundle complete. Selecting composition...');
 
   const FPS = 30;
-  // 5s title + 5 indicators * 9s + 10s summary + 7s CTA = 67s
-  const totalDurationFrames = (5 + 5 * 9 + 10 + 7) * FPS;
+  const totalDurationFrames = (5 + 5 * 9 + 10 + 7) * FPS; // 67s
 
   const inputProps = {
     countryA,
@@ -253,10 +275,9 @@ async function renderVideo(
     inputProps,
   });
 
-  // Override duration
   composition.durationInFrames = totalDurationFrames;
 
-  console.log(`[video] Rendering ${totalDurationFrames} frames (${totalDurationFrames / FPS}s) at 1920x1080...`);
+  console.log(`[chart] Rendering ${totalDurationFrames} frames (${totalDurationFrames / FPS}s) at 1920x1080...`);
 
   await renderMedia({
     composition,
@@ -266,25 +287,133 @@ async function renderVideo(
     inputProps,
   });
 
-  console.log(`[video] Video rendered: ${outputPath}`);
+  console.log(`[chart] Video rendered: ${outputPath}`);
 }
 
-// ─── Main ────────────────────────────────────────
+// ═══════════════════════════════════════════════
+// TopView AI — Avatar video (portrait, for Shorts)
+// ═══════════════════════════════════════════════
+
+function topviewHeaders(): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${TOPVIEW_API_KEY}`,
+    'Topview-Uid': TOPVIEW_UID,
+  };
+}
+
+async function submitAvatarTask(script: string): Promise<string> {
+  console.log('[avatar] Submitting Video Avatar task to TopView AI...');
+
+  const body = {
+    avatarSourceFrom: '1',   // default AI avatar
+    aiAvatarId: '3327',      // default avatar
+    audioSourceFrom: '1',    // text-to-speech
+    ttsText: script,
+    voiceSpeed: 1,
+    modeType: '2',           // avatar4 (high quality)
+  };
+
+  const res = await fetch(`${TOPVIEW_BASE}/video_avatar/task/submit`, {
+    method: 'POST',
+    headers: topviewHeaders(),
+    body: JSON.stringify(body),
+  });
+
+  const json: any = await res.json();
+  console.log(`[avatar] Submit response: code=${json.code}, taskId=${json.result?.taskId}`);
+
+  if (!res.ok || (json.code !== '200' && json.code !== '0')) {
+    throw new Error(`TopView submit error: ${JSON.stringify(json)}`);
+  }
+
+  const taskId = json.result?.taskId;
+  if (!taskId) throw new Error(`TopView: no taskId in response`);
+
+  return taskId;
+}
+
+async function queryAvatarTask(taskId: string): Promise<{ status: string; videoUrl?: string }> {
+  const res = await fetch(`${TOPVIEW_BASE}/video_avatar/task/query?taskId=${taskId}`, {
+    method: 'GET',
+    headers: topviewHeaders(),
+  });
+
+  const json: any = await res.json();
+  if (!res.ok || (json.code !== '200' && json.code !== '0')) {
+    throw new Error(`TopView query error: ${JSON.stringify(json)}`);
+  }
+
+  const result = json.result;
+  if (result?.status === 'fail') {
+    console.error(`[avatar] Task failed: ${result?.errorMsg || 'unknown'}`);
+  }
+
+  if (result?.status === 'success' && result?.outputVideoUrl) {
+    return { status: 'success', videoUrl: result.outputVideoUrl };
+  }
+
+  return { status: result?.status || 'unknown' };
+}
+
+async function pollAvatarUntilReady(taskId: string): Promise<string> {
+  const maxAttempts = Math.ceil((MAX_POLL_MINUTES * 60 * 1000) / POLL_INTERVAL_MS);
+
+  for (let i = 0; i < maxAttempts; i++) {
+    const result = await queryAvatarTask(taskId);
+    console.log(`[avatar] Poll ${i + 1}/${maxAttempts}: status=${result.status}`);
+
+    if (result.status === 'success' && result.videoUrl) {
+      return result.videoUrl;
+    }
+
+    if (result.status === 'fail' || result.status === 'error') {
+      throw new Error('TopView avatar video generation failed');
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
+
+  throw new Error(`TopView: timed out after ${MAX_POLL_MINUTES} minutes`);
+}
+
+async function renderAvatarVideo(script: string, outputPath: string): Promise<void> {
+  const taskId = await submitAvatarTask(script);
+
+  const videoUrl = await pollAvatarUntilReady(taskId);
+
+  console.log(`[avatar] Downloading video...`);
+  const res = await fetch(videoUrl);
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  const buffer = Buffer.from(await res.arrayBuffer());
+  fs.writeFileSync(outputPath, buffer);
+  console.log(`[avatar] Video saved: ${outputPath} (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`);
+}
+
+// ═══════════════════════════════════════════════
+// Main
+// ═══════════════════════════════════════════════
 
 export interface VideoResult {
   success: boolean;
   countryA?: Country;
   countryB?: Country;
   scriptPath?: string;
-  videoPath?: string;
+  chartVideoPath?: string;
+  avatarVideoPath?: string;
   script?: string;
   error?: string;
+  // Legacy compat
+  videoPath?: string;
 }
 
 export async function run(options?: {
   countryA?: Country;
   countryB?: Country;
+  mode?: VideoMode;
 }): Promise<VideoResult> {
+  const mode = options?.mode || 'both';
+
   try {
     if (!fs.existsSync(OUTPUT_DIR)) {
       fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -296,6 +425,7 @@ export async function run(options?: {
         ? [options.countryA, options.countryB]
         : pickTwo();
     console.log(`[video] Selected: ${countryA.name} vs ${countryB.name}`);
+    console.log(`[video] Mode: ${mode}`);
 
     // 2. Fetch World Bank data
     const indicatorData = await fetchCountryData(countryA, countryB);
@@ -309,20 +439,47 @@ export async function run(options?: {
     console.log(script);
     console.log(`[video] --- End Script ---`);
 
-    // 4. Generate TTS audio via ElevenLabs
-    const audioPath = path.join(OUTPUT_DIR, 'audio.mp3');
-    await generateAudio(script, audioPath);
+    let chartVideoPath: string | undefined;
+    let avatarVideoPath: string | undefined;
 
-    // 5. Render video via Remotion
-    const videoPath = path.join(OUTPUT_DIR, 'video.mp4');
-    await renderVideo(countryA, countryB, indicatorData, audioPath, videoPath);
+    // 4a. Chart video (Remotion + Edge TTS)
+    if (mode === 'both' || mode === 'chart') {
+      console.log('\n' + '='.repeat(50));
+      console.log('  Generating Chart Video (Remotion)');
+      console.log('='.repeat(50) + '\n');
 
-    console.log(`[video] Done!`);
+      const audioPath = path.join(OUTPUT_DIR, 'audio.mp3');
+      await generateAudio(script, audioPath);
+
+      chartVideoPath = path.join(OUTPUT_DIR, 'video-chart.mp4');
+      await renderChartVideo(countryA, countryB, indicatorData, audioPath, chartVideoPath);
+    }
+
+    // 4b. Avatar video (TopView AI)
+    if (mode === 'both' || mode === 'avatar') {
+      console.log('\n' + '='.repeat(50));
+      console.log('  Generating Avatar Video (TopView AI)');
+      console.log('='.repeat(50) + '\n');
+
+      avatarVideoPath = path.join(OUTPUT_DIR, 'video-avatar.mp4');
+      await renderAvatarVideo(script, avatarVideoPath);
+    }
+
+    console.log(`\n[video] Done!`);
     console.log(`[video]   Script: ${scriptPath}`);
-    console.log(`[video]   Audio:  ${audioPath}`);
-    console.log(`[video]   Video:  ${videoPath}`);
+    if (chartVideoPath) console.log(`[video]   Chart:  ${chartVideoPath}`);
+    if (avatarVideoPath) console.log(`[video]   Avatar: ${avatarVideoPath}`);
 
-    return { success: true, countryA, countryB, scriptPath, videoPath, script };
+    return {
+      success: true,
+      countryA,
+      countryB,
+      scriptPath,
+      chartVideoPath,
+      avatarVideoPath,
+      script,
+      videoPath: chartVideoPath || avatarVideoPath, // legacy compat
+    };
   } catch (error: any) {
     console.error(`[video] Failed: ${error.message}`);
     return { success: false, error: error.message };
@@ -331,7 +488,12 @@ export async function run(options?: {
 
 // Direct execution
 if (require.main === module) {
-  run().then((result) => {
+  const args = process.argv.slice(2);
+  let mode: VideoMode = 'both';
+  if (args.includes('--chart')) mode = 'chart';
+  if (args.includes('--avatar')) mode = 'avatar';
+
+  run({ mode }).then((result) => {
     process.exit(result.success ? 0 : 1);
   });
 }

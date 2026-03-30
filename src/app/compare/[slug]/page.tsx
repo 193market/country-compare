@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { parseCompareSlug, getAllCompareSlugs, getRelatedComparisons } from '@/lib/countries';
+import { parseCompareSlug, getRelatedComparisons } from '@/lib/countries';
 import { countryCodeToFlag } from '@/lib/flags';
 import { fetchIndicator } from '@/lib/worldbank';
 import { FREE_INDICATORS, PRO_INDICATORS } from '@/lib/indicators';
@@ -36,8 +36,34 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
+export const dynamicParams = true;
+export const revalidate = 86400; // 24시간 캐시
+
 export function generateStaticParams() {
-  return getAllCompareSlugs().map((slug) => ({ slug }));
+  // 인기 비교 페이지 20개만 빌드 시 사전 생성, 나머지는 첫 방문 시 ISR
+  const popular = [
+    'united-states-vs-china',
+    'south-korea-vs-japan',
+    'united-states-vs-india',
+    'germany-vs-france',
+    'united-kingdom-vs-germany',
+    'japan-vs-china',
+    'india-vs-brazil',
+    'australia-vs-canada',
+    'singapore-vs-south-korea',
+    'united-states-vs-japan',
+    'china-vs-india',
+    'united-states-vs-germany',
+    'united-kingdom-vs-france',
+    'south-korea-vs-china',
+    'brazil-vs-mexico',
+    'canada-vs-australia',
+    'united-states-vs-united-kingdom',
+    'germany-vs-japan',
+    'france-vs-italy',
+    'netherlands-vs-sweden',
+  ];
+  return popular.map((slug) => ({ slug }));
 }
 
 interface CountryResult {

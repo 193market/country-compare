@@ -42,8 +42,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
+export const dynamicParams = true;
+export const revalidate = 86400; // 24시간 캐시
+
 export function generateStaticParams() {
-  return COUNTRIES.map((c) => ({ slug: c.slug }));
+  // 주요 국가 15개만 빌드 시 사전 생성, 나머지는 첫 방문 시 ISR
+  const popular = [
+    'united-states', 'china', 'japan', 'south-korea', 'india',
+    'germany', 'united-kingdom', 'france', 'brazil', 'canada',
+    'australia', 'singapore', 'netherlands', 'sweden', 'norway',
+  ];
+  return popular.map((slug) => ({ slug }));
 }
 
 export default async function CountryProfilePage({ params }: PageProps) {

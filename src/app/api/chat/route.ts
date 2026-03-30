@@ -1,0 +1,329 @@
+import Anthropic from "@anthropic-ai/sdk";
+import { NextRequest } from "next/server";
+import { getFredSeries, searchFredSeries } from "@/lib/fred";
+import { getIndicator, compareCountries } from "@/lib/worldbank";
+import { getEcosSeries, searchEcos } from "@/lib/ecos";
+import { getEstatData, searchEstat } from "@/lib/estat";
+import { generatePDFReport } from "@/lib/reportGenerator";
+import { detectLanguage } from "@/lib/detectLanguage";
+import { verifyToken, TOKEN_COOKIE } from "@/lib/auth";
+
+const BASE_SYSTEM_PROMPT = `You are CountryCompare AI, an economic analyst with access to real-time global data.
+When answering questions:
+1. Always cite specific numbers and data sources
+2. Use data from FRED (US economy), World Bank (200 countries), and other sources
+3. Provide historical context and trends
+4. Give actionable insights, not just data
+5. Be specific: say '$485 billion' not 'large GDP'
+Format your response with clear sections and use markdown.
+
+CHART GUIDELINES:
+When you have numerical data to present, include charts using this exact format:
+
+\`\`\`chart
+{
+  "type": "line",
+  "title": "Chart Title Here",
+  "labels": ["Label1", "Label2"],
+  "datasets": [{ "label": "Series Name", "data": [1.5, 2.3] }]
+}
+\`\`\`
+
+Chart rules:
+- Use "line" for time series data (trends over time)
+- Use "bar" for comparisons between categories/countries
+- Use "doughnut" for composition/share data
+- Keep labels concise (years like "2020", country codes like "US")
+- Round numbers to 2 decimal places
+- Include 1-4 datasets per chart
+- Always include at least one chart when presenting data
+- Place charts AFTER your text analysis
+
+REPORT GENERATION:
+When you have collected data from multiple indicators, also generate a comprehensive analysis for a PDF report. Structure your response in two parts:
+
+PART 1 (Chat response): Brief summary with key findings
+PART 2 (Report analysis): Detailed analysis wrapped in <report_analysis>...</report_analysis> tags containing:
+- Executive summary (200+ words)
+- Per-indicator analysis (100+ words each)
+- Country-by-country structural analysis (150+ words each)
+- Cross-indicator correlations and insights
+- Risk factors for each country
+- Forward-looking outlook
+
+CRITICAL: When a user asks a question involving country comparisons or economic indicators, always call MULTIPLE tools:
+- GDP growth (NY.GDP.MKTP.KD.ZG)
+- Inflation (FP.CPI.TOTL.ZG)
+- Unemployment (SL.UEM.TOTL.ZS)
+- GDP per capita (NY.GDP.PCAP.CD)
+- At minimum 4 indicators for comprehensive reports`;
+
+const PRO_DATA_SOURCES = `
+
+You also have access to:
+- ECOS (Bank of Korea): South Korea economic data including base rate, GDP, CPI, exchange rates, household credit
+- e-Stat (Japan): Japan statistics including CPI, industrial production, labor force, population, trade
+
+When users ask about Korea or Japan economics, use the appropriate tools (get_korea_data, get_japan_data).
+For Korea data, common stat codes: 722Y001 (base rate), 901Y009 (GDP growth), 021Y125 (CPI), 731Y003 (USD/KRW).
+For Japan data, common table IDs: 0003143513 (CPI), 0003143514 (industrial production), 0003006803 (labor).`;
+
+const FREE_DATA_NOTICE = `
+
+You have access to World Bank data only. For FRED, Korea, and Japan data, users need Pro access.`;
+
+const tools: Anthropic.Tool[] = [
+  {
+    name: "get_fred_data",
+    description:
+      "Get US economic data from FRED. Use for US-specific indicators like federal funds rate, CPI, unemployment, GDP, S&P 500, gold price, mortgage rates.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        series_id: { type: "string", description: "FRED series ID. Common: FEDFUNDS, CPIAUCSL, UNRATE, GDP, SP500, GOLDAMGBD228NLBM, MORTGAGE30US, T10Y2Y" },
+        start_date: { type: "string", description: "Start date YYYY-MM-DD" },
+        end_date: { type: "string", description: "End date YYYY-MM-DD" },
+      },
+      required: ["series_id"],
+    },
+  },
+  {
+    name: "get_worldbank_data",
+    description:
+      "Get country-level economic data from the World Bank for 200+ countries.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        country_codes: { type: "array", items: { type: "string" }, description: "ISO country codes e.g. ['US', 'CN', 'KR']" },
+        indicator_id: { type: "string", description: "World Bank indicator ID. Common: NY.GDP.MKTP.CD, NY.GDP.MKTP.KD.ZG, NY.GDP.PCAP.CD, FP.CPI.TOTL.ZG, SL.UEM.TOTL.ZS, SP.POP.TOTL" },
+        start_year: { type: "number" },
+        end_year: { type: "number" },
+      },
+      required: ["country_codes", "indicator_id"],
+    },
+  },
+  {
+    name: "compare_countries",
+    description: "Compare multiple countries across several economic indicators at once.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        country_codes: { type: "array", items: { type: "string" } },
+        indicators: { type: "array", items: { type: "string" }, description: "World Bank indicator IDs" },
+      },
+      required: ["country_codes", "indicators"],
+    },
+  },
+  {
+    name: "search_fred",
+    description: "Search FRED for economic data series by keyword.",
+    input_schema: {
+      type: "object" as const,
+      properties: { query: { type: "string" } },
+      required: ["query"],
+    },
+  },
+  {
+    name: "get_korea_data",
+    description: "Get South Korea economic data from Bank of Korea ECOS. Pro only.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        stat_code: { type: "string" },
+        period: { type: "string", description: "A(annual), Q(quarterly), M(monthly), D(daily)" },
+        start_date: { type: "string" },
+        end_date: { type: "string" },
+      },
+      required: ["stat_code", "period", "start_date", "end_date"],
+    },
+  },
+  {
+    name: "search_korea_data",
+    description: "Search for available Korea (ECOS) economic data series.",
+    input_schema: {
+      type: "object" as const,
+      properties: { query: { type: "string" } },
+      required: ["query"],
+    },
+  },
+  {
+    name: "get_japan_data",
+    description: "Get Japan economic data from e-Stat. Pro only.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        stats_data_id: { type: "string" },
+        start_year: { type: "number" },
+        end_year: { type: "number" },
+      },
+      required: ["stats_data_id"],
+    },
+  },
+  {
+    name: "search_japan_data",
+    description: "Search for available Japan (e-Stat) statistical tables.",
+    input_schema: {
+      type: "object" as const,
+      properties: { query: { type: "string" } },
+      required: ["query"],
+    },
+  },
+];
+
+const FREE_TOOL_NAMES = new Set(["get_worldbank_data", "compare_countries"]);
+
+async function executeTool(name: string, input: Record<string, unknown>): Promise<string> {
+  try {
+    switch (name) {
+      case "get_fred_data": {
+        const data = await getFredSeries(input.series_id as string, input.start_date as string | undefined, input.end_date as string | undefined);
+        return JSON.stringify({ series_id: input.series_id, recent_data: data.slice(-20) });
+      }
+      case "get_worldbank_data": {
+        const results = await compareCountries(input.country_codes as string[], input.indicator_id as string, input.start_year as number | undefined, input.end_year as number | undefined);
+        return JSON.stringify(results);
+      }
+      case "compare_countries": {
+        const allResults: Record<string, unknown> = {};
+        for (const ind of input.indicators as string[]) {
+          allResults[ind] = await compareCountries(input.country_codes as string[], ind);
+        }
+        return JSON.stringify(allResults);
+      }
+      case "search_fred":
+        return JSON.stringify(await searchFredSeries(input.query as string));
+      case "get_korea_data":
+        return JSON.stringify(await getEcosSeries(input.stat_code as string, input.period as string, input.start_date as string, input.end_date as string));
+      case "search_korea_data":
+        return JSON.stringify(await searchEcos(input.query as string));
+      case "get_japan_data":
+        return JSON.stringify(await getEstatData(input.stats_data_id as string, input.start_year as number | undefined, input.end_year as number | undefined));
+      case "search_japan_data":
+        return JSON.stringify(await searchEstat(input.query as string));
+      default:
+        return JSON.stringify({ error: `Unknown tool: ${name}` });
+    }
+  } catch (error) {
+    return JSON.stringify({ error: error instanceof Error ? error.message : "Tool execution failed" });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), { status: 500 });
+  }
+
+  const { messages } = await req.json();
+
+  // country-compare JWT cookie로 Pro 판단
+  const token = req.cookies.get(TOKEN_COOKIE)?.value;
+  const isPro = token ? !!verifyToken(token) : false;
+
+  const client = new Anthropic({ apiKey });
+  const systemPrompt = isPro ? BASE_SYSTEM_PROMPT + PRO_DATA_SOURCES : BASE_SYSTEM_PROMPT + FREE_DATA_NOTICE;
+  const availableTools = isPro ? tools : tools.filter((t) => FREE_TOOL_NAMES.has(t.name));
+
+  const claudeMessages: Anthropic.MessageParam[] = messages.map(
+    (m: { role: string; content: string }) => ({ role: m.role as "user" | "assistant", content: m.content })
+  );
+
+  const collectedData: Record<string, unknown> = {};
+  const extractedCountries: string[] = [];
+
+  try {
+    let response = await client.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 8192,
+      system: systemPrompt,
+      tools: availableTools,
+      messages: claudeMessages,
+    });
+
+    while (response.stop_reason === "tool_use") {
+      const toolUseBlocks = response.content.filter(
+        (block): block is Anthropic.ContentBlock & { type: "tool_use" } => block.type === "tool_use"
+      );
+
+      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+      for (const toolUse of toolUseBlocks) {
+        const result = await executeTool(toolUse.name, toolUse.input as Record<string, unknown>);
+        toolResults.push({ type: "tool_result", tool_use_id: toolUse.id, content: result });
+
+        try {
+          const parsed = JSON.parse(result);
+          const toolInput = toolUse.input as Record<string, unknown>;
+          const key = (toolInput.indicator_id as string) || (toolInput.series_id as string) || toolUse.name;
+          collectedData[key] = parsed;
+          if (Array.isArray(toolInput.country_codes)) {
+            for (const cc of toolInput.country_codes as string[]) {
+              if (!extractedCountries.includes(cc)) extractedCountries.push(cc);
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      claudeMessages.push({ role: "assistant", content: response.content });
+      claudeMessages.push({ role: "user", content: toolResults });
+
+      response = await client.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 8192,
+        system: systemPrompt,
+        tools: availableTools,
+        messages: claudeMessages,
+      });
+    }
+
+    const fullText = response.content
+      .filter((block): block is Anthropic.TextBlock => block.type === "text")
+      .map((block) => block.text)
+      .join("");
+
+    const reportMatch = fullText.match(/<report_analysis>([\s\S]*?)<\/report_analysis>/);
+    const chatText = fullText.replace(/<report_analysis>[\s\S]*?<\/report_analysis>/, "").trim();
+
+    let pdfUrl: string | null = null;
+    if (reportMatch && Object.keys(collectedData).length > 0) {
+      try {
+        const userMsg = messages[messages.length - 1]?.content || "";
+        const language = detectLanguage(userMsg);
+        pdfUrl = await generatePDFReport({
+          question: userMsg,
+          language,
+          countries: extractedCountries,
+          indicators: collectedData,
+          analysis: reportMatch[1],
+        });
+      } catch (err) {
+        console.error("PDF generation failed:", err);
+      }
+    }
+
+    const responsePayload = pdfUrl
+      ? `${chatText}\n\n📊 **[Download Full Report (PDF)](${pdfUrl})**`
+      : chatText;
+
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        const chunkSize = 20;
+        let i = 0;
+        const interval = setInterval(() => {
+          if (i < responsePayload.length) {
+            controller.enqueue(encoder.encode(responsePayload.slice(i, i + chunkSize)));
+            i += chunkSize;
+          } else {
+            clearInterval(interval);
+            controller.close();
+          }
+        }, 10);
+      },
+    });
+
+    return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    return new Response(JSON.stringify({ error: msg }), { status: 500 });
+  }
+}

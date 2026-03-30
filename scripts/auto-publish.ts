@@ -1,22 +1,28 @@
 /**
  * auto-publish.ts
- * Main orchestrator — runs article, dataset, video generation, and YouTube upload in sequence.
+ * Main orchestrator — runs article, dataset, dual video generation, and YouTube upload.
  * All steps use the same randomly selected country pair.
  */
 
 import { run as runArticle } from './generate-article';
 import { run as runDataset } from './generate-dataset';
-import { run as runVideo, pickTwo } from './generate-video';
+import { run as runVideo, pickTwo, VideoMode } from './generate-video';
 import { uploadToYouTube } from './upload-youtube';
 
 async function main() {
   const args = process.argv.slice(2);
   const isDraft = args.includes('--draft');
 
+  // Video mode: default 'both', can be overridden
+  let videoMode: VideoMode = 'both';
+  if (args.includes('--chart-only')) videoMode = 'chart';
+  if (args.includes('--avatar-only')) videoMode = 'avatar';
+
   console.log('='.repeat(60));
   console.log('  CountryCompare Auto-Publish Pipeline');
   console.log(`  ${new Date().toISOString()}`);
   if (isDraft) console.log('  MODE: DRAFT (YouTube → unlisted)');
+  console.log(`  VIDEO: ${videoMode}`);
   console.log('='.repeat(60));
 
   // Pick countries once, reuse across all steps
@@ -43,31 +49,40 @@ async function main() {
     detail: datasetResult.success ? datasetResult.csvPath : datasetResult.error,
   });
 
-  // Step 3: TopView AI Video Generation
-  console.log('\n--- Step 3/4: TopView AI Video ---\n');
-  const videoResult = await runVideo({ countryA, countryB });
+  // Step 3: Video Generation (Chart + Avatar)
+  console.log('\n--- Step 3/4: Video Generation ---\n');
+  const videoResult = await runVideo({ countryA, countryB, mode: videoMode });
   results.push({
-    step: 'TopView AI Video',
+    step: `Video Generation (${videoMode})`,
     success: videoResult.success,
     detail: videoResult.success
-      ? `Script: ${videoResult.scriptPath}, Video: ${videoResult.videoPath}`
+      ? [
+          videoResult.chartVideoPath && `Chart: ${videoResult.chartVideoPath}`,
+          videoResult.avatarVideoPath && `Avatar: ${videoResult.avatarVideoPath}`,
+        ].filter(Boolean).join(', ')
       : videoResult.error,
   });
 
-  // Step 4: YouTube Upload (only if video succeeded)
+  // Step 4: YouTube Upload (both videos if available)
   console.log('\n--- Step 4/4: YouTube Upload ---\n');
   if (videoResult.success && videoResult.script) {
     const ytResult = await uploadToYouTube({
       countryA,
       countryB,
       script: videoResult.script,
-      videoPath: videoResult.videoPath,
+      chartVideoPath: videoResult.chartVideoPath,
+      avatarVideoPath: videoResult.avatarVideoPath,
       privacyStatus: isDraft ? 'unlisted' : 'public',
     });
     results.push({
       step: 'YouTube Upload',
       success: ytResult.success,
-      detail: ytResult.success ? ytResult.url : ytResult.error,
+      detail: ytResult.success
+        ? [
+            ytResult.chartUrl && `Main: ${ytResult.chartUrl}`,
+            ytResult.avatarUrl && `Shorts: ${ytResult.avatarUrl}`,
+          ].filter(Boolean).join(', ')
+        : ytResult.error,
     });
   } else {
     console.log('[auto] Skipping YouTube upload — video generation failed');

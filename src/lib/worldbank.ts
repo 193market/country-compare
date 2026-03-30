@@ -1,5 +1,43 @@
 const BASE_URL = 'https://api.worldbank.org/v2';
 
+// Chat API용 함수 (datalens에서 이식)
+export async function getIndicator(
+  countryCode: string,
+  indicatorId: string,
+  startYear?: number,
+  endYear?: number
+): Promise<{ year: string; value: number | null; country: string }[]> {
+  const dateRange = startYear && endYear ? `&date=${startYear}:${endYear}` : '';
+  const url = `${BASE_URL}/country/${countryCode}/indicator/${indicatorId}?format=json&per_page=100${dateRange}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`World Bank API error: ${res.status}`);
+  const data = await res.json();
+  if (!data[1]) return [];
+  return data[1]
+    .filter((d: { value: number | null }) => d.value !== null)
+    .map((d: { date: string; value: number | null; country: { value: string } }) => ({
+      year: d.date,
+      value: d.value,
+      country: d.country.value,
+    }))
+    .sort((a: { year: string }, b: { year: string }) => parseInt(a.year) - parseInt(b.year));
+}
+
+export async function compareCountries(
+  countryCodes: string[],
+  indicatorId: string,
+  startYear?: number,
+  endYear?: number
+): Promise<Record<string, { year: string; value: number | null; country: string }[]>> {
+  const results: Record<string, { year: string; value: number | null; country: string }[]> = {};
+  await Promise.all(
+    countryCodes.map(async (code) => {
+      results[code] = await getIndicator(code, indicatorId, startYear, endYear);
+    })
+  );
+  return results;
+}
+
 export interface Country {
   id: string;
   name: string;

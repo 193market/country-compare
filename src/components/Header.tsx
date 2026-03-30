@@ -24,6 +24,7 @@ export default function Header() {
   const links = [
     { href: '/', label: 'Home' },
     { href: '/#countries', label: 'Countries' },
+    { href: '/chat', label: 'AI Chat' },
     { href: '/pricing', label: 'Pricing' },
     { href: '/about', label: 'About' },
   ];
